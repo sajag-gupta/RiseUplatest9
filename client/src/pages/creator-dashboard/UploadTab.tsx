@@ -1,0 +1,170 @@
+import { useState } from "react";
+import { Upload } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { useRequireRole } from "@/hooks/use-auth";
+import { toast } from "@/hooks/use-toast";
+import Loading from "@/components/common/loading";
+import { MUSIC_GENRES } from "@/lib/constants";
+
+// ---------- COMPONENT ----------
+export default function UploadTab() {
+  const auth = useRequireRole("artist");
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Upload Song Mutation
+  const uploadSongMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const res = await fetch("/api/songs", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Song uploaded successfully" });
+      setIsUploading(false);
+    },
+    onError: () => {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload song. Please try again.",
+        variant: "destructive",
+      });
+      setIsUploading(false);
+    },
+  });
+
+  // Song Upload Handler
+  const handleSongUpload = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const audioFile = formData.get("audio") as File;
+    const artworkFile = formData.get("artwork") as File;
+
+    if (!audioFile || !artworkFile) {
+      toast({
+        title: "Missing files",
+        description: "Please select both audio file and artwork",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const songData = {
+      title: formData.get("title") as string,
+      genre: formData.get("genre") as string,
+      visibility: (formData.get("visibility") as string) || "PUBLIC",
+    };
+
+    // Prepare FormData for upload
+    const uploadFormData = new FormData();
+    uploadFormData.append("audio", audioFile);
+    uploadFormData.append("artwork", artworkFile);
+    uploadFormData.append("title", songData.title);
+    uploadFormData.append("genre", songData.genre);
+    uploadFormData.append("visibility", songData.visibility);
+
+    setIsUploading(true);
+    uploadSongMutation.mutate(uploadFormData);
+    form.reset();
+  };
+
+  return (
+    <TabsContent value="upload">
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload New Song</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Share your music with the world. Supported formats: MP3, WAV
+          </p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSongUpload} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="title">Song Title *</Label>
+                <Input
+                  id="title"
+                  name="title"
+                  placeholder="Enter song title"
+                  required
+                />
+              </div>
+
+              {/* Genre */}
+              <div className="space-y-2">
+                <Label htmlFor="genre">Genre *</Label>
+                <Select name="genre" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select genre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MUSIC_GENRES.map((genre) => (
+                      <SelectItem key={genre} value={genre}>
+                        {genre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Visibility */}
+            <div className="space-y-2">
+              <Label htmlFor="visibility">Visibility</Label>
+              <Select name="visibility" defaultValue="PUBLIC">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC">Public</SelectItem>
+                  <SelectItem value="SUBSCRIBER_ONLY">Subscribers Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Files */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="audio">Audio File *</Label>
+                <Input id="audio" name="audio" type="file" accept="audio/*" required />
+                <p className="text-xs text-muted-foreground">Max size: 50MB</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="artwork">Artwork *</Label>
+                <Input id="artwork" name="artwork" type="file" accept="image/*" required />
+                <p className="text-xs text-muted-foreground">Recommended: 800x800px</p>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full gradient-primary hover:opacity-90"
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loading size="sm" /> Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" /> Upload Song
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
