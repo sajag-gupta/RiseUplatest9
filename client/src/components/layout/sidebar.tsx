@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   Home, Compass, Calendar, ShoppingBag, Heart, ListMusic,
-  Settings, User, BarChart3, Upload, PlusCircle, Crown, Megaphone
+  Settings, User, BarChart3, Upload, PlusCircle, Crown, Megaphone, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,6 +42,7 @@ export default function Sidebar() {
   const fanLinks = [
     { href: "/home", icon: Home, label: "Home" },
     { href: "/discover", icon: Compass, label: "Discover" },
+    { href: "/nft-marketplace", icon: Zap, label: "NFTs" },
     { href: "/events", icon: Calendar, label: "Events" },
     { href: "/merch", icon: ShoppingBag, label: "Merch" },
     { href: "/cart", icon: ShoppingBag, label: "Cart" },
@@ -57,6 +58,7 @@ export default function Sidebar() {
   // Artist navigation
   const artistLinks = [
     { href: "/creator", icon: BarChart3, label: "Creator Dashboard" },
+    { href: "/nft-marketplace", icon: Zap, label: "NFTs" },
     { href: "/favorites", icon: Heart, label: "Favorites" },
     { href: "/dashboard?tab=orders", icon: ShoppingBag, label: "Orders" },
     { href: "/playlists", icon: ListMusic, label: "Playlists" },
@@ -65,6 +67,7 @@ export default function Sidebar() {
   // Admin navigation
   const adminLinks = [
     { href: "/admin", icon: BarChart3, label: "Admin Panel" },
+    { href: "/nft-marketplace", icon: Zap, label: "NFTs" },
     { href: "/admin?tab=artists", icon: User, label: "Artists" },
     { href: "/admin?tab=content", icon: ListMusic, label: "Content" },
     { href: "/admin?tab=analytics", icon: BarChart3, label: "Analytics" },
@@ -77,7 +80,12 @@ export default function Sidebar() {
       case "artist":
         return { primary: artistLinks, secondary: [] };
       case "admin":
-        return { primary: adminLinks, secondary: [] };
+        // Admin gets fan-like navigation plus admin panel
+        const adminFanLinks = [
+          { href: "/admin", icon: BarChart3, label: "Admin Panel" },
+          ...fanLinks
+        ];
+        return { primary: adminFanLinks, secondary: fanSecondaryLinks };
       default:
         return { primary: fanLinks, secondary: fanSecondaryLinks };
     }
@@ -170,8 +178,8 @@ export default function Sidebar() {
           </>
         )}
 
-        {/* Premium Banner */}
-        {user.plan?.type === "FREE" && user.role === "fan" && (
+        {/* Premium Banner - Only show for FREE users */}
+        {(!user.plan?.type || user.plan.type === "FREE") && user.role === "fan" && (
           <Card className="p-4 gradient-primary text-white">
             <div className="flex items-center space-x-2 mb-2">
               <Crown className="w-5 h-5" />

@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import {
   Upload, Music, Calendar, ShoppingBag,
-  DollarSign, Users, Heart, Play
+  DollarSign, Users, Heart, Play, Palette, Crown, Vote
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
@@ -26,6 +26,14 @@ export default function OverviewTab() {
   const { data: analytics } = useQuery({
     queryKey: ["artistAnalytics"],
     queryFn: () => fetch("/api/artists/analytics", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` }
+    }).then(res => res.json()),
+    enabled: !!auth.user,
+  });
+
+  const { data: nftAnalytics } = useQuery({
+    queryKey: ["artistNFTAlytics"],
+    queryFn: () => fetch("/api/artists/analytics/nfts", {
       headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` }
     }).then(res => res.json()),
     enabled: !!auth.user,
@@ -59,9 +67,18 @@ export default function OverviewTab() {
     newFollowers: 0, newSubscribers: 0, conversionRate: 0, topSongs: []
   };
 
+  const safeNFTAlytics = nftAnalytics || {
+    totalMints: 0,
+    totalSales: 0,
+    totalRoyalties: 0,
+    totalRevenue: 0,
+    royaltyRevenue: 0,
+    primaryRevenue: 0
+  };
+
   return (
     <TabsContent value="overview">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
         {/* Earnings */}
         <Card>
           <CardHeader className="flex items-center justify-between pb-2">
@@ -72,10 +89,8 @@ export default function OverviewTab() {
             <div className="text-2xl font-bold">
               ₹
               {(
-                safeArtistProfile.revenue.subscriptions +
-                safeArtistProfile.revenue.merch +
-                safeArtistProfile.revenue.events +
-                safeArtistProfile.revenue.ads
+                safeAnalytics.monthlyRevenue +
+                safeNFTAlytics.totalRevenue
               ).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">+12% from last month</p>
@@ -124,29 +139,95 @@ export default function OverviewTab() {
             </p>
           </CardContent>
         </Card>
+
+        {/* NFT Mints */}
+        <Card>
+          <CardHeader className="flex items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">NFT Mints</CardTitle>
+            <Palette className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{safeNFTAlytics.totalMints?.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              +{safeNFTAlytics.totalMints || 0} NFTs created
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* NFT Sales */}
+        <Card>
+          <CardHeader className="flex items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">NFT Sales</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{safeNFTAlytics.totalSales?.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              ₹{safeNFTAlytics.totalRevenue?.toLocaleString() || 0} total revenue
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* NFT Royalties */}
+        <Card>
+          <CardHeader className="flex items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">NFT Royalties</CardTitle>
+            <Crown className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{safeNFTAlytics.totalRoyalties?.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              ₹{safeNFTAlytics.royaltyRevenue?.toLocaleString() || 0} earned
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card onClick={() => setLocation("/creator?tab=upload")} className="cursor-pointer hover-glow">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <Upload className="w-12 h-12 text-primary mb-4" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card onClick={() => setLocation("/creator/upload")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <Upload className="w-10 h-10 text-primary mb-3" />
             <h3 className="text-lg font-semibold">Upload Music</h3>
             <p className="text-sm text-muted-foreground">Share your tracks with fans</p>
           </CardContent>
         </Card>
 
-        <Card onClick={() => setLocation("/creator?tab=events")} className="cursor-pointer hover-glow">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <Calendar className="w-12 h-12 text-secondary mb-4" />
+        <Card onClick={() => setLocation("/creator/nfts")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <Palette className="w-10 h-10 text-purple-500 mb-3" />
+            <h3 className="text-lg font-semibold">Mint NFT</h3>
+            <p className="text-sm text-muted-foreground">Create digital collectibles</p>
+          </CardContent>
+        </Card>
+
+        <Card onClick={() => setLocation("/creator/fanclub")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <Crown className="w-10 h-10 text-yellow-500 mb-3" />
+            <h3 className="text-lg font-semibold">Fan Club</h3>
+            <p className="text-sm text-muted-foreground">Build exclusive community</p>
+          </CardContent>
+        </Card>
+
+        <Card onClick={() => setLocation("/creator/dao")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <Vote className="w-10 h-10 text-blue-500 mb-3" />
+            <h3 className="text-lg font-semibold">DAO Governance</h3>
+            <p className="text-sm text-muted-foreground">Create proposals & vote</p>
+          </CardContent>
+        </Card>
+
+        <Card onClick={() => setLocation("/creator/events")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <Calendar className="w-10 h-10 text-secondary mb-3" />
             <h3 className="text-lg font-semibold">Create Event</h3>
             <p className="text-sm text-muted-foreground">Schedule concerts & shows</p>
           </CardContent>
         </Card>
 
-        <Card onClick={() => setLocation("/creator?tab=merch")} className="cursor-pointer hover-glow">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <ShoppingBag className="w-12 h-12 text-accent mb-4" />
+        <Card onClick={() => setLocation("/creator/merch")} className="cursor-pointer hover-glow">
+          <CardContent className="flex flex-col items-center justify-center p-6 text-center">
+            <ShoppingBag className="w-10 h-10 text-accent mb-3" />
             <h3 className="text-lg font-semibold">Add Merch</h3>
             <p className="text-sm text-muted-foreground">Sell products to fans</p>
           </CardContent>

@@ -441,6 +441,360 @@ export class AnalyticsService {
   }
 
   // ===================
+  // NFT ANALYTICS METHODS
+  // ===================
+
+  // Track NFT Mint
+  static async trackNFTMint(userId: string, nftId: string, metadata: any = {}) {
+    try {
+      await storage.logAnalytics({
+        userId,
+        nftId,
+        action: "nft_mint",
+        context: "nft_marketplace",
+        value: metadata.price || 0,
+        metadata: {
+          tokenId: metadata.tokenId,
+          contractAddress: metadata.contractAddress,
+          contentType: metadata.contentType,
+          tags: metadata.tags,
+          editions: metadata.editions,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error tracking NFT mint:", error);
+    }
+  }
+
+  // Track NFT Purchase
+  static async trackNFTPurchase(buyerId: string, sellerId: string, nftId: string, price: number, currency: string = "matic") {
+    try {
+      await storage.logAnalytics({
+        userId: buyerId,
+        nftId,
+        action: "nft_purchase",
+        context: "nft_marketplace",
+        value: price,
+        metadata: {
+          sellerId,
+          currency,
+          transactionType: "primary_sale",
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      // Also track for seller
+      await storage.logAnalytics({
+        userId: sellerId,
+        nftId,
+        action: "nft_sale",
+        context: "nft_marketplace",
+        value: price,
+        metadata: {
+          buyerId,
+          currency,
+          transactionType: "primary_sale",
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error tracking NFT purchase:", error);
+    }
+  }
+
+  // Track NFT Bid
+  static async trackNFTBid(userId: string, nftId: string, bidAmount: number, currency: string = "matic") {
+    try {
+      await storage.logAnalytics({
+        userId,
+        nftId,
+        action: "nft_bid",
+        context: "nft_marketplace",
+        value: bidAmount,
+        metadata: {
+          currency,
+          bidType: "auction_bid",
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error tracking NFT bid:", error);
+    }
+  }
+
+  // Track NFT View
+  static async trackNFTView(userId: string, nftId: string, context: string = "marketplace") {
+    try {
+      await storage.logAnalytics({
+        userId,
+        nftId,
+        action: "nft_view",
+        context,
+        metadata: {
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error tracking NFT view:", error);
+    }
+  }
+
+  // Track NFT Like/Share
+  static async trackNFTInteraction(userId: string, nftId: string, action: "nft_like" | "nft_share", context: string = "marketplace") {
+    try {
+      await storage.logAnalytics({
+        userId,
+        nftId,
+        action,
+        context,
+        metadata: {
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error tracking NFT interaction:", error);
+    }
+  }
+
+  // Get NFT Analytics
+  static async getNFTAnalytics(nftId: string, days: number = 30) {
+    try {
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const analytics = await analyticsStorage.db.collection("analytics").find({
+        nftId,
+        timestamp: { $gte: startDate }
+      }).toArray();
+
+      const views = analytics.filter((a: any) => a.action === "nft_view").length;
+      const likes = analytics.filter((a: any) => a.action === "nft_like").length;
+      const shares = analytics.filter((a: any) => a.action === "nft_share").length;
+      const bids = analytics.filter((a: any) => a.action === "nft_bid").length;
+
+      return {
+        totalViews: views,
+        totalLikes: likes,
+        totalShares: shares,
+        totalBids: bids,
+        engagementRate: views > 0 ? Math.round(((likes + shares + bids) / views) * 100) : 0
+      };
+    } catch (error) {
+      console.error("Error getting NFT analytics:", error);
+      return {
+        totalViews: 0,
+        totalLikes: 0,
+        totalShares: 0,
+        totalBids: 0,
+        engagementRate: 0
+      };
+    }
+  }
+
+  // Get NFT Marketplace Analytics
+  static async getNFTMarketplaceAnalytics(days: number = 30) {
+    try {
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const analytics = await analyticsStorage.db.collection("analytics").find({
+        action: { $in: ["nft_mint", "nft_purchase", "nft_bid", "nft_view", "nft_like"] },
+        timestamp: { $gte: startDate }
+      }).toArray();
+
+      const totalMints = analytics.filter((a: any) => a.action === "nft_mint").length;
+      const totalPurchases = analytics.filter((a: any) => a.action === "nft_purchase").length;
+      const totalBids = analytics.filter((a: any) => a.action === "nft_bid").length;
+      const totalViews = analytics.filter((a: any) => a.action === "nft_view").length;
+      const totalLikes = analytics.filter((a: any) => a.action === "nft_like").length;
+
+      const totalVolume = analytics
+        .filter((a: any) => a.action === "nft_purchase" && a.value)
+        .reduce((sum: number, a: any) => sum + (a.value || 0), 0);
+
+      return {
+        totalMints,
+        totalPurchases,
+        totalBids,
+        totalViews,
+        totalLikes,
+        totalVolume,
+        averagePrice: totalPurchases > 0 ? totalVolume / totalPurchases : 0
+      };
+    } catch (error) {
+      console.error("Error getting NFT marketplace analytics:", error);
+      return {
+        totalMints: 0,
+        totalPurchases: 0,
+        totalBids: 0,
+        totalViews: 0,
+        totalLikes: 0,
+        totalVolume: 0,
+        averagePrice: 0
+      };
+    }
+  }
+
+  // Get Artist NFT Analytics
+  static async getArtistNFTAlytics(artistId: string, days: number = 30) {
+    try {
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const analytics = await analyticsStorage.db.collection("analytics").find({
+        artistId,
+        action: { $regex: "^nft_" },
+        timestamp: { $gte: startDate }
+      }).toArray();
+
+      const totalMints = analytics.filter((a: any) => a.action === "nft_mint").length;
+      const totalSales = analytics.filter((a: any) => a.action === "nft_sale").length;
+      const totalRoyalties = analytics.filter((a: any) => a.action === "nft_royalty_earned").length;
+
+      const totalRevenue = analytics
+        .filter((a: any) => a.value && (a.action === "nft_sale" || a.action === "nft_royalty_earned"))
+        .reduce((sum: number, a: any) => sum + (a.value || 0), 0);
+
+      const royaltyRevenue = analytics
+        .filter((a: any) => a.action === "nft_royalty_earned" && a.value)
+        .reduce((sum: number, a: any) => sum + (a.value || 0), 0);
+
+      return {
+        totalMints,
+        totalSales,
+        totalRoyalties,
+        totalRevenue,
+        royaltyRevenue,
+        primaryRevenue: totalRevenue - royaltyRevenue
+      };
+    } catch (error) {
+      console.error("Error getting artist NFT analytics:", error);
+      return {
+        totalMints: 0,
+        totalSales: 0,
+        totalRoyalties: 0,
+        totalRevenue: 0,
+        royaltyRevenue: 0,
+        primaryRevenue: 0
+      };
+    }
+  }
+
+  // ===================
+  // CROSS-SYSTEM ANALYTICS
+  // ===================
+
+  // Get User Cross-System Engagement
+  static async getUserCrossSystemEngagement(userId: string, days: number = 30) {
+    try {
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const analytics = await analyticsStorage.db.collection("analytics").find({
+        userId,
+        timestamp: { $gte: startDate }
+      }).toArray();
+
+      const musicEngagement = analytics.filter((a: any) =>
+        ["play", "like", "share", "follow"].includes(a.action)
+      ).length;
+
+      const nftEngagement = analytics.filter((a: any) =>
+        a.action.startsWith("nft_")
+      ).length;
+
+      const fanClubEngagement = analytics.filter((a: any) =>
+        a.action.startsWith("fan_club_")
+      ).length;
+
+      const daoEngagement = analytics.filter((a: any) =>
+        a.action.startsWith("dao_")
+      ).length;
+
+      const totalEngagement = musicEngagement + nftEngagement + fanClubEngagement + daoEngagement;
+
+      return {
+        musicEngagement,
+        nftEngagement,
+        fanClubEngagement,
+        daoEngagement,
+        totalEngagement,
+        engagementDistribution: {
+          music: totalEngagement > 0 ? Math.round((musicEngagement / totalEngagement) * 100) : 0,
+          nft: totalEngagement > 0 ? Math.round((nftEngagement / totalEngagement) * 100) : 0,
+          fanClub: totalEngagement > 0 ? Math.round((fanClubEngagement / totalEngagement) * 100) : 0,
+          dao: totalEngagement > 0 ? Math.round((daoEngagement / totalEngagement) * 100) : 0
+        }
+      };
+    } catch (error) {
+      console.error("Error getting user cross-system engagement:", error);
+      return {
+        musicEngagement: 0,
+        nftEngagement: 0,
+        fanClubEngagement: 0,
+        daoEngagement: 0,
+        totalEngagement: 0,
+        engagementDistribution: { music: 0, nft: 0, fanClub: 0, dao: 0 }
+      };
+    }
+  }
+
+  // Get Platform Cross-System Analytics
+  static async getPlatformCrossSystemAnalytics(days: number = 30) {
+    try {
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const analytics = await analyticsStorage.db.collection("analytics").find({
+        timestamp: { $gte: startDate }
+      }).toArray();
+
+      const musicActions = analytics.filter((a: any) =>
+        ["play", "like", "share", "follow", "create_song"].includes(a.action)
+      ).length;
+
+      const nftActions = analytics.filter((a: any) =>
+        a.action.startsWith("nft_")
+      ).length;
+
+      const fanClubActions = analytics.filter((a: any) =>
+        a.action.startsWith("fan_club_")
+      ).length;
+
+      const daoActions = analytics.filter((a: any) =>
+        a.action.startsWith("dao_")
+      ).length;
+
+      const commerceActions = analytics.filter((a: any) =>
+        ["purchase", "merch_sale", "subscription_payment"].includes(a.action)
+      ).length;
+
+      return {
+        musicActions,
+        nftActions,
+        fanClubActions,
+        daoActions,
+        commerceActions,
+        totalActions: analytics.length,
+        systemDistribution: {
+          music: analytics.length > 0 ? Math.round((musicActions / analytics.length) * 100) : 0,
+          nft: analytics.length > 0 ? Math.round((nftActions / analytics.length) * 100) : 0,
+          fanClub: analytics.length > 0 ? Math.round((fanClubActions / analytics.length) * 100) : 0,
+          dao: analytics.length > 0 ? Math.round((daoActions / analytics.length) * 100) : 0,
+          commerce: analytics.length > 0 ? Math.round((commerceActions / analytics.length) * 100) : 0
+        }
+      };
+    } catch (error) {
+      console.error("Error getting platform cross-system analytics:", error);
+      return {
+        musicActions: 0,
+        nftActions: 0,
+        fanClubActions: 0,
+        daoActions: 0,
+        commerceActions: 0,
+        totalActions: 0,
+        systemDistribution: { music: 0, nft: 0, fanClub: 0, dao: 0, commerce: 0 }
+      };
+    }
+  }
+
+  // ===================
   // HELPER METHODS
   // ===================
 
@@ -516,7 +870,29 @@ export class AnalyticsService {
         { $limit: 5 }
       ]).toArray();
 
-      return result;
+      // Fetch song details for each top song
+      const topSongsWithDetails = await Promise.all(
+        result.map(async (item) => {
+          try {
+            const song = await storage.getSong(item.songId);
+            if (song) {
+              return {
+                _id: song._id,
+                title: song.title,
+                plays: item.plays,
+                likes: song.likes || 0,
+                uniqueListeners: item.uniqueListeners
+              };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching song ${item.songId}:`, error);
+            return null;
+          }
+        })
+      );
+
+      return topSongsWithDetails.filter(song => song !== null);
     } catch (error) {
       console.error("Error getting top songs by artist:", error);
       return [];

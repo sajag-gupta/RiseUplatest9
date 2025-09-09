@@ -503,13 +503,22 @@ export default function SongDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <Button variant="outline" className="w-full">
-                      <Download className="w-4 h-4 mr-2" />
-                      High Quality (Premium)
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Upgrade to premium for high-quality downloads
-                    </p>
+                    {user?.plan?.type && user.plan.type !== "FREE" ? (
+                      <Button variant="outline" className="w-full">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download High Quality (320kbps)
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline" className="w-full" disabled>
+                          <Download className="w-4 h-4 mr-2" />
+                          High Quality (Premium Only)
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Upgrade to premium for high-quality downloads
+                        </p>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

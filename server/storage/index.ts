@@ -3,6 +3,11 @@ import { ContentStorage } from "./content";
 import { CommerceStorage } from "./commerce";
 import { AnalyticsStorage } from "./analytics";
 import { AdStorage } from "./ads";
+import { NFTStorage } from "./nft";
+import { FanClubStorage } from "./fanclub-storage";
+import { DAOStorage } from "./dao-storage";
+import { LoyaltyStorage } from "./loyalty-storage";
+import { CollectionStorage } from "./collection-storage";
 import { IStorage } from "./base";
 
 // Composite storage class that combines all storage modules
@@ -12,6 +17,11 @@ export class MongoStorage implements IStorage {
   private commerceStorage: CommerceStorage;
   private analyticsStorage: AnalyticsStorage;
   private adStorage: AdStorage;
+  private nftStorage: NFTStorage;
+  private fanClubStorage: FanClubStorage;
+  private daoStorage: DAOStorage;
+  private loyaltyStorage: LoyaltyStorage;
+  private collectionStorage: CollectionStorage;
 
   constructor() {
     this.userStorage = new UserStorage();
@@ -19,6 +29,11 @@ export class MongoStorage implements IStorage {
     this.commerceStorage = new CommerceStorage();
     this.analyticsStorage = new AnalyticsStorage();
     this.adStorage = new AdStorage();
+    this.nftStorage = new NFTStorage();
+    this.fanClubStorage = new FanClubStorage(this.userStorage.db);
+    this.daoStorage = new DAOStorage(this.userStorage.db);
+    this.loyaltyStorage = new LoyaltyStorage(this.userStorage.db);
+    this.collectionStorage = new CollectionStorage(this.userStorage.db);
   }
 
   async connect(): Promise<void> {
@@ -123,12 +138,14 @@ export class MongoStorage implements IStorage {
 
   async getAudioAd(id: string) { return this.adStorage.getAudioAd(id); }
   async getAudioAdsByCampaign(campaignId: string) { return this.adStorage.getAudioAdsByCampaign(campaignId); }
+  async getAllAudioAds() { return this.adStorage.getAllAudioAds(); }
   async createAudioAd(ad: any) { return this.adStorage.createAudioAd(ad); }
   async updateAudioAd(id: string, updates: Partial<any>) { return this.adStorage.updateAudioAd(id, updates); }
   async deleteAudioAd(id: string) { return this.adStorage.deleteAudioAd(id); }
 
   async getBannerAd(id: string) { return this.adStorage.getBannerAd(id); }
   async getBannerAdsByCampaign(campaignId: string) { return this.adStorage.getBannerAdsByCampaign(campaignId); }
+  async getAllBannerAds() { return this.adStorage.getAllBannerAds(); }
   async createBannerAd(ad: any) { return this.adStorage.createBannerAd(ad); }
   async updateBannerAd(id: string, updates: Partial<any>) { return this.adStorage.updateBannerAd(id, updates); }
   async deleteBannerAd(id: string) { return this.adStorage.deleteBannerAd(id); }
@@ -151,6 +168,65 @@ export class MongoStorage implements IStorage {
 
   async getAdStats(adId: string, adType: string) { return this.adStorage.getAdStats(adId, adType); }
 
+  // NFT methods - delegate to NFTStorage
+  async getAllNFTs() { return this.nftStorage.getAllNFTs(); }
+  async getNFT(id: string) { return this.nftStorage.getNFT(id); }
+  async getNFTsByUser(userId: string) { return this.nftStorage.getNFTsByUser(userId); }
+  async createNFT(nft: any) { return this.nftStorage.createNFT(nft); }
+  async updateNFT(id: string, updates: Partial<any>) { return this.nftStorage.updateNFT(id, updates); }
+  async deleteNFT(id: string) { return this.nftStorage.deleteNFT(id); }
+  async getListedNFTs() { return this.nftStorage.getListedNFTs(); }
+  async getActiveAuctions() { return this.nftStorage.getActiveAuctions(); }
+  async createNFTListing(listing: any) { return this.nftStorage.createNFTListing(listing); }
+  async updateNFTListing(id: string, updates: Partial<any>) { return this.nftStorage.updateNFTListing(id, updates); }
+  async deleteNFTListing(id: string) { return this.nftStorage.deleteNFTListing(id); }
+  async createNFTAuction(auction: any) { return this.nftStorage.createNFTAuction(auction); }
+  async updateNFTAuction(id: string, updates: Partial<any>) { return this.nftStorage.updateNFTAuction(id, updates); }
+  async deleteNFTAuction(id: string) { return this.nftStorage.deleteNFTAuction(id); }
+  async createNFTTransaction(transaction: any) { return this.nftStorage.createNFTTransaction(transaction); }
+  async getNFTTransactions(nftId: string) { return this.nftStorage.getNFTTransactions(nftId); }
+  async getNFTTransactionsByUser(userId: string) { return this.nftStorage.getNFTTransactionsByUser(userId); }
+  async getNFTStats() { return this.nftStorage.getNFTStats(); }
+
+  // Fan Club methods - delegate to FanClubStorage
+  async getAllFanClubMemberships() { return this.fanClubStorage.getAllFanClubMemberships(); }
+  async getFanClubMembershipByUser(userId: string) { return this.fanClubStorage.getFanClubMembershipByUser(userId); }
+  async createFanClubMembership(membership: any) { return this.fanClubStorage.createFanClubMembership(membership); }
+  async updateFanClubMembership(id: string, updates: any) { return this.fanClubStorage.updateFanClubMembership(id, updates); }
+  async getFanClubStats() { return this.fanClubStorage.getFanClubStats(); }
+
+  // Collection methods - delegate to CollectionStorage
+  async getAllCollections() { return this.collectionStorage.getAllCollections(); }
+  async getCollection(id: string) { return this.collectionStorage.getCollection(id); }
+  async createCollection(collection: any) { return this.collectionStorage.createCollection(collection); }
+
+  // DAO methods - delegate to DAOStorage
+  async getAllDAOProposals() { return this.daoStorage.getAllDAOProposals(); }
+  async getDAOProposal(id: string) { return this.daoStorage.getDAOProposal(id); }
+  async createDAOProposal(proposal: any) { return this.daoStorage.createDAOProposal(proposal); }
+  async updateDAOProposal(id: string, updates: any) { return this.daoStorage.updateDAOProposal(id, updates); }
+  async getDAOVotes(proposalId: string) { return this.daoStorage.getDAOVotes(proposalId); }
+  async createDAOVote(vote: any) { return this.daoStorage.createDAOVote(vote); }
+  async getUserGovernanceTokens(userId: string) { return this.daoStorage.getUserGovernanceTokens(userId); }
+  async createUserGovernanceTokens(tokens: any) { return this.daoStorage.createUserGovernanceTokens(tokens); }
+  async updateUserGovernanceTokens(userId: string, updates: any) { return this.daoStorage.updateUserGovernanceTokens(userId, updates); }
+  async getDAOStats() { return this.daoStorage.getDAOStats(); }
+
+  // Loyalty methods - delegate to LoyaltyStorage
+  async getAllAchievements() { return this.loyaltyStorage.getAllAchievements(); }
+  async getAchievement(id: string) { return this.loyaltyStorage.getAchievement(id); }
+  async createAchievement(achievement: any) { return this.loyaltyStorage.createAchievement(achievement); }
+  async getUserAchievements(userId: string) { return this.loyaltyStorage.getUserAchievements(userId); }
+  async createUserAchievement(achievement: any) { return this.loyaltyStorage.createUserAchievement(achievement); }
+  async getUserLoyaltyProfile(userId: string) { return this.loyaltyStorage.getUserLoyaltyProfile(userId); }
+  async createUserLoyaltyProfile(profile: any) { return this.loyaltyStorage.createUserLoyaltyProfile(profile); }
+  async updateUserLoyaltyProfile(id: string, updates: any) { return this.loyaltyStorage.updateUserLoyaltyProfile(id, updates); }
+  async getStakingInfo(tokenId: string) { return this.loyaltyStorage.getStakingInfo(tokenId); }
+  async createStaking(staking: any) { return this.loyaltyStorage.createStaking(staking); }
+  async updateStaking(id: string, updates: any) { return this.loyaltyStorage.updateStaking(id, updates); }
+  async createPointsTransaction(transaction: any) { return this.loyaltyStorage.createPointsTransaction(transaction); }
+  async getLoyaltyStats() { return this.loyaltyStorage.getLoyaltyStats(); }
+
   // Helper method
   async getArtistNameByProfileId(artistId: string) { return this.userStorage.getArtistNameByProfileId(artistId); }
 }
@@ -159,4 +235,15 @@ export class MongoStorage implements IStorage {
 export const storage = new MongoStorage();
 
 // Export individual storage classes for testing or advanced usage
-export { UserStorage, ContentStorage, CommerceStorage, AnalyticsStorage, AdStorage };
+export {
+  UserStorage,
+  ContentStorage,
+  CommerceStorage,
+  AnalyticsStorage,
+  AdStorage,
+  NFTStorage,
+  FanClubStorage,
+  DAOStorage,
+  LoyaltyStorage,
+  CollectionStorage
+};

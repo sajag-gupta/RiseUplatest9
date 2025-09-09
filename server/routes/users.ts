@@ -3,6 +3,7 @@ import multer from "multer";
 import { storage } from "../storage";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import { uploadImage } from "../services/cloudinary";
+import { createOrder, verifyPayment, verifyPaymentWithTracking, getPaymentStatus } from "../services/razorpay";
 
 // Multer configuration for file uploads (storing files in memory)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -364,6 +365,289 @@ export function setupUserRoutes(app: Express) {
     }
   });
 
+  // Plan upgrade routes
+  app.post("/api/users/me/upgrade", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { planId } = req.body;
+
+      if (!planId) {
+        return res.status(400).json({ message: "Plan ID is required" });
+      }
+
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Validate plan ID
+      const validPlans = ["free", "premium", "artist"];
+      if (!validPlans.includes(planId.toLowerCase())) {
+        return res.status(400).json({ message: "Invalid plan ID" });
+      }
+
+      const currentPlan = user.plan?.type?.toUpperCase() || "FREE";
+      const requestedPlan = planId.toUpperCase();
+
+      // Check if already on the requested plan
+      if (currentPlan === requestedPlan) {
+        return res.status(400).json({ message: "Already on this plan" });
+      }
+
+      // Handle free plan (no payment required)
+      if (requestedPlan === "FREE") {
+        await storage.updateUser(req.user!.id, {
+          plan: {
+            type: "FREE",
+            renewsAt: undefined,
+            paymentId: undefined,
+            subscriptionId: undefined
+          }
+        });
+
+        return res.json({
+          message: "Plan updated successfully",
+          plan: { type: "FREE" }
+        });
+      }
+
+      // Handle premium/artist plans (payment required)
+      const planPrices = {
+        PREMIUM: 99,
+        ARTIST: 299
+      };
+
+      const amount = planPrices[requestedPlan as keyof typeof planPrices];
+      if (!amount) {
+        return res.status(400).json({ message: "Invalid plan" });
+      }
+
+      // Create Razorpay order
+      try {
+        // Use a simple short receipt like commerce routes do
+        const receipt = `plan_${Date.now().toString().slice(-8)}`; // Simple timestamp-based receipt
+
+        const order = await createOrder(amount, "INR", receipt);
+
+        // Check if we have the Razorpay key for frontend
+        if (!process.env.RAZORPAY_KEY_ID) {
+          return res.status(503).json({
+            message: "Payment service configuration incomplete. Please contact support."
+          });
+        }
+
+        res.json({
+          orderId: order.id,
+          amount: order.amount,
+          currency: order.currency,
+          planId: requestedPlan,
+          key: process.env.RAZORPAY_KEY_ID.trim()
+        });
+      } catch (razorpayError: any) {
+        console.error("Razorpay order creation failed:", razorpayError);
+        return res.status(503).json({
+          message: "Payment service temporarily unavailable. Please try again later or contact support.",
+          error: razorpayError.message
+        });
+      }
+
+    } catch (error) {
+      console.error("Plan upgrade error:", error);
+      res.status(500).json({ message: "Failed to initiate upgrade" });
+    }
+  });
+
+  // Verify payment and complete upgrade
+  app.post("/api/users/me/upgrade/verify", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { orderId, paymentId, signature, planId } = req.body;
+
+      if (!orderId || !paymentId || !signature || !planId) {
+        return res.status(400).json({
+          message: "Missing payment verification data",
+          error: "REQUIRED_FIELDS_MISSING"
+        });
+      }
+
+      console.log(`Payment verification request: orderId=${orderId}, paymentId=${paymentId}, planId=${planId}`);
+
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+          error: "USER_NOT_FOUND"
+        });
+      }
+
+      // Use enhanced payment verification with tracking
+      const verificationResult = await verifyPaymentWithTracking(orderId, paymentId, signature, planId);
+
+      // If payment is still processing, return appropriate response
+      if (!verificationResult.success) {
+        return res.status(202).json({
+          message: verificationResult.message || "Payment is still being processed",
+          status: "processing",
+          orderId,
+          paymentId,
+          planId
+        });
+      }
+
+      // Payment successful - update user plan
+      const renewsAt = new Date();
+      renewsAt.setMonth(renewsAt.getMonth() + 1);
+
+      const planUpdate: any = {
+        plan: {
+          type: planId,
+          renewsAt,
+          paymentId,
+          subscriptionId: undefined // For future subscription management
+        }
+      };
+
+      // If upgrading to ARTIST plan, also change role from fan to artist
+      if (planId === "ARTIST" && user.role === "fan") {
+        planUpdate.role = "artist";
+      }
+
+      await storage.updateUser(req.user!.id, planUpdate);
+
+      // Get updated user data
+      const updatedUser = await storage.getUser(req.user!.id);
+
+      // Generate new JWT token with updated role
+      const jwt = require("jsonwebtoken");
+      const newToken = jwt.sign(
+        { userId: updatedUser!._id, email: updatedUser!.email, role: updatedUser!.role, name: updatedUser!.name },
+        process.env.SESSION_SECRET || "your-secret-key-here",
+        { expiresIn: "24h" },
+      );
+
+      console.log(`Payment verification successful for user ${user._id}: plan upgraded to ${planId}`);
+
+      res.json({
+        message: "Plan upgraded successfully",
+        plan: {
+          type: planId,
+          renewsAt
+        },
+        user: {
+          id: updatedUser!._id,
+          name: updatedUser!.name,
+          email: updatedUser!.email,
+          role: updatedUser!.role,
+          plan: updatedUser!.plan,
+          favorites: updatedUser!.favorites,
+          following: updatedUser!.following,
+          avatarUrl: updatedUser!.avatarUrl,
+        },
+        token: newToken, // Send new token with updated role
+        paymentDetails: verificationResult.paymentDetails
+      });
+
+    } catch (error: any) {
+      console.error("Payment verification error:", {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.id,
+        body: req.body
+      });
+
+      // Provide user-friendly error messages based on error type
+      let statusCode = 500;
+      let errorMessage = "Payment verification failed";
+      let errorCode = "VERIFICATION_FAILED";
+
+      if (error.message?.includes("Payment signature verification failed")) {
+        statusCode = 400;
+        errorMessage = "Payment verification failed. Please contact support if you were charged.";
+        errorCode = "SIGNATURE_VERIFICATION_FAILED";
+      } else if (error.message?.includes("Payment failed")) {
+        statusCode = 400;
+        errorMessage = error.message;
+        errorCode = "PAYMENT_FAILED";
+      } else if (error.message?.includes("timed out")) {
+        statusCode = 408;
+        errorMessage = "Payment verification is taking longer than expected. Please check your payment status in a few minutes.";
+        errorCode = "VERIFICATION_TIMEOUT";
+      } else if (error.message?.includes("network") || error.message?.includes("fetch")) {
+        statusCode = 503;
+        errorMessage = "Network error during payment verification. Please try again.";
+        errorCode = "NETWORK_ERROR";
+      }
+
+      res.status(statusCode).json({
+        message: errorMessage,
+        error: errorCode,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  // Check payment status for recovery
+  app.get("/api/users/me/payment-status/:orderId/:paymentId", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { orderId, paymentId } = req.params;
+
+      if (!orderId || !paymentId) {
+        return res.status(400).json({ message: "Order ID and Payment ID are required" });
+      }
+
+      const paymentStatusInfo = getPaymentStatus(orderId, paymentId);
+
+      if (!paymentStatusInfo) {
+        return res.status(404).json({
+          message: "Payment status not found. This payment may be too old or doesn't exist.",
+          status: "not_found"
+        });
+      }
+
+      // If payment was completed, check if user actually has the plan
+      if (paymentStatusInfo.status === 'completed') {
+        const user = await storage.getUser(req.user!.id);
+        if (user && user.plan?.type?.toUpperCase() === paymentStatusInfo.planId) {
+          return res.json({
+            status: "completed",
+            message: "Payment completed successfully",
+            planId: paymentStatusInfo.planId,
+            userPlan: user.plan
+          });
+        } else {
+          // Payment completed but user doesn't have the plan - possible sync issue
+          console.warn(`Payment completed but user plan not synced: user=${req.user!.id}, planId=${paymentStatusInfo.planId}`);
+          return res.status(206).json({
+            status: "completed_but_not_synced",
+            message: "Payment was successful but your account hasn't been updated yet. Please contact support.",
+            planId: paymentStatusInfo.planId
+          });
+        }
+      }
+
+      res.json({
+        status: paymentStatusInfo.status,
+        attempts: paymentStatusInfo.attempts,
+        lastAttempt: paymentStatusInfo.lastAttempt,
+        planId: paymentStatusInfo.planId,
+        message: paymentStatusInfo.status === 'failed'
+          ? "Payment verification failed. Please try again or contact support."
+          : paymentStatusInfo.status === 'processing'
+          ? "Payment is still being processed. Please wait..."
+          : "Payment status unknown"
+      });
+
+    } catch (error: any) {
+      console.error("Payment status check error:", error);
+      res.status(500).json({
+        message: "Unable to check payment status. Please try again or contact support.",
+        error: error.message
+      });
+    }
+  });
+
   // Delete user account
   app.delete("/api/users/me", authenticateToken, async (req: AuthRequest, res) => {
     try {
@@ -381,6 +665,8 @@ export function setupUserRoutes(app: Express) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+
 
   // Avatar upload
   app.post("/api/users/me/avatar", authenticateToken, upload.single("avatar"), async (req: AuthRequest, res) => {

@@ -50,7 +50,7 @@ export interface CurrentUser {
   role: "fan" | "artist" | "admin";
   avatarUrl?: string;
   plan?: {
-    type: "FREE" | "PREMIUM";
+    type: "FREE" | "PREMIUM" | "ARTIST";
     renewsAt?: Date;
   };
   favorites?: {
@@ -182,7 +182,6 @@ export interface SignupForm {
   email: string;
   password: string;
   confirmPassword: string;
-  role: "fan" | "artist";
 }
 
 export interface UploadSongForm {

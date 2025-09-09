@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, AlertTriangle, BarChart3, Settings, CheckCircle, XCircle, Clock, DollarSign, Music } from "lucide-react";
+import { Users, AlertTriangle, BarChart3, Settings, CheckCircle, XCircle, Clock, DollarSign, Music, Shield, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +10,13 @@ import { useRequireRole } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
 import Loading from "@/components/common/loading";
 import AdminAnalyticsDashboard from "@/components/admin/admin-analytics-dashboard";
-import AdManagementPanel from "@/components/admin/ad-management-panel";
+import AdManagementPanel from "@/components/admin/AdManagementPanel";
+import AdminUserManagement from "@/components/admin/admin-user-management";
+import AdminNFTManagement from "@/components/admin/admin-nft-management";
+import AdminPaymentManagement from "@/components/admin/admin-payment-management";
+import AdminPromoManagement from "@/components/admin/admin-promo-management";
+import AdminTaxSettings from "@/components/admin/admin-tax-settings";
+import AdminReturnManagement from "@/components/admin/admin-return-management";
 
 export default function AdminPanel() {
   const auth = useRequireRole("admin");
@@ -20,8 +26,21 @@ export default function AdminPanel() {
   // Fetch admin data
   const { data: dashboardStats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/admin/dashboard"],
+    queryFn: () => fetch("/api/admin/dashboard", {
+      headers: { Authorization: `Bearer ${localStorage.getItem('ruc_auth_token')}` }
+    }).then(res => res.json()),
     enabled: !!auth.user,
     staleTime: 2 * 60 * 1000,
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as any).status;
+        if (status === 401 || status === 403) {
+          return false;
+        }
+      }
+      return failureCount < 2;
+    },
   });
 
   const { data: pendingArtists, isLoading: artistsLoading } = useQuery<any[]>({
@@ -88,12 +107,18 @@ export default function AdminPanel() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-11 mb-8">
             <TabsTrigger value="dashboard" data-testid="dashboard-tab">Dashboard</TabsTrigger>
+            <TabsTrigger value="users" data-testid="users-tab">Users</TabsTrigger>
             <TabsTrigger value="artists" data-testid="artists-tab">Artists</TabsTrigger>
+            <TabsTrigger value="nfts" data-testid="nfts-tab">NFTs</TabsTrigger>
+            <TabsTrigger value="payments" data-testid="payments-tab">Payments</TabsTrigger>
+            <TabsTrigger value="returns" data-testid="returns-tab">Returns</TabsTrigger>
+            <TabsTrigger value="promo" data-testid="promo-tab">Promo Codes</TabsTrigger>
+            <TabsTrigger value="tax" data-testid="tax-tab">Tax Settings</TabsTrigger>
             <TabsTrigger value="content" data-testid="content-tab">Content</TabsTrigger>
             <TabsTrigger value="analytics" data-testid="analytics-tab">Analytics</TabsTrigger>
-            <TabsTrigger value="ads" data-testid="ads-tab">Ad Management</TabsTrigger>
+            <TabsTrigger value="ads" data-testid="ads-tab">Ads</TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -339,6 +364,36 @@ export default function AdminPanel() {
           {/* Analytics Tab */}
           <TabsContent value="analytics">
             <AdminAnalyticsDashboard />
+          </TabsContent>
+
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <AdminUserManagement />
+          </TabsContent>
+
+          {/* NFTs Tab */}
+          <TabsContent value="nfts">
+            <AdminNFTManagement />
+          </TabsContent>
+
+          {/* Payments Tab */}
+          <TabsContent value="payments">
+            <AdminPaymentManagement />
+          </TabsContent>
+
+          {/* Returns Tab */}
+          <TabsContent value="returns">
+            <AdminReturnManagement />
+          </TabsContent>
+
+          {/* Promo Codes Tab */}
+          <TabsContent value="promo">
+            <AdminPromoManagement />
+          </TabsContent>
+
+          {/* Tax Settings Tab */}
+          <TabsContent value="tax">
+            <AdminTaxSettings />
           </TabsContent>
 
           {/* Ads Tab */}

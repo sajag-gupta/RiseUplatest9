@@ -25,7 +25,23 @@ export const analyticsSchema = z.object({
     "event_registration", "event_attendance", "merch_view", "blog_view",
     "profile_view", "discover_browse", "genre_filter", "mood_filter",
     "create_song", "create_blog", "create_event", "create_merch",
-    "subscription_payment", "merch_sale", "event_ticket_sale", "ad_revenue"
+    "subscription_payment", "merch_sale", "event_ticket_sale", "ad_revenue",
+    // NFT-specific actions
+    "nft_mint", "nft_purchase", "nft_bid", "nft_list", "nft_unlist",
+    "nft_transfer", "nft_burn", "nft_like", "nft_share", "nft_view",
+    "nft_collection_view", "nft_offer", "nft_offer_accept", "nft_offer_reject",
+    "nft_auction_start", "nft_auction_end", "nft_auction_win", "nft_auction_lose",
+    "nft_royalty_earned", "nft_royalty_paid", "nft_floor_price_update",
+    "nft_rarity_update", "nft_holder_join", "nft_holder_leave",
+    // Fan Club & DAO actions
+    "fan_club_join", "fan_club_leave", "fan_club_post", "fan_club_comment",
+    "dao_proposal_create", "dao_proposal_vote", "dao_proposal_pass", "dao_proposal_fail",
+    "dao_token_earned", "dao_token_spent", "dao_governance_participate",
+    // Cross-chain actions
+    "cross_chain_transfer", "cross_chain_bridge", "cross_chain_swap",
+    // Loyalty & Gamification
+    "loyalty_points_earned", "loyalty_points_spent", "achievement_unlocked",
+    "badge_earned", "level_up", "streak_maintained", "quest_completed"
   ]),
   context: z.enum([
     "home", "profile", "discover", "player", "cart", "admin", "checkout",
@@ -188,6 +204,183 @@ export const contentPerformanceSchema = z.object({
 export const insertContentPerformanceSchema = contentPerformanceSchema.omit({ _id: true, lastUpdated: true });
 
 // -----------------------------
+// 🔹 NFT Analytics Schema
+// -----------------------------
+export const nftAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  nftId: ObjectIdType,
+  userId: ObjectIdType.optional(),   // Reference to User
+  artistId: ObjectIdType.optional(), // Reference to User (role=artist)
+  collectionId: ObjectIdType.optional(), // Reference to NFT Collection
+  action: z.enum([
+    "nft_mint", "nft_purchase", "nft_bid", "nft_list", "nft_unlist",
+    "nft_transfer", "nft_burn", "nft_like", "nft_share", "nft_view",
+    "nft_collection_view", "nft_offer", "nft_offer_accept", "nft_offer_reject",
+    "nft_auction_start", "nft_auction_end", "nft_auction_win", "nft_auction_lose",
+    "nft_royalty_earned", "nft_royalty_paid", "nft_floor_price_update",
+    "nft_rarity_update", "nft_holder_join", "nft_holder_leave"
+  ]),
+  value: z.number().optional(), // Price, bid amount, royalty amount, etc.
+  currency: z.string().optional(), // MATIC, INR, etc.
+  metadata: z.object({
+    tokenId: z.string().optional(),
+    contractAddress: z.string().optional(),
+    previousOwner: ObjectIdType.optional(),
+    newOwner: ObjectIdType.optional(),
+    bidAmount: z.number().optional(),
+    floorPrice: z.number().optional(),
+    rarityScore: z.number().optional(),
+    traits: z.record(z.string()).optional(),
+    transactionHash: z.string().optional(),
+    gasUsed: z.number().optional(),
+    network: z.string().optional() // ethereum, polygon, etc.
+  }).default({}),
+  timestamp: z.date().default(() => new Date())
+});
+
+export const insertNftAnalyticsSchema = nftAnalyticsSchema.omit({ _id: true, timestamp: true });
+
+// -----------------------------
+// 🔹 NFT Collection Analytics Schema
+// -----------------------------
+export const nftCollectionAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  collectionId: ObjectIdType,
+  artistId: ObjectIdType,
+  metrics: z.object({
+    totalVolume: z.number().default(0), // Total trading volume
+    floorPrice: z.number().default(0), // Lowest price in collection
+    ceilingPrice: z.number().default(0), // Highest price in collection
+    averagePrice: z.number().default(0), // Average sale price
+    totalSales: z.number().default(0), // Number of sales
+    uniqueHolders: z.number().default(0), // Unique NFT holders
+    totalSupply: z.number().default(0), // Total NFTs in collection
+    listedCount: z.number().default(0), // NFTs currently listed
+    auctionCount: z.number().default(0), // NFTs in active auctions
+    views: z.number().default(0), // Collection page views
+    likes: z.number().default(0), // Collection likes
+    shares: z.number().default(0) // Collection shares
+  }).default({}),
+  trending: z.object({
+    score: z.number().default(0),
+    rank: z.number().optional(),
+    volume24h: z.number().default(0),
+    priceChange24h: z.number().default(0)
+  }).default({}),
+  lastUpdated: z.date().default(() => new Date())
+});
+
+export const insertNftCollectionAnalyticsSchema = nftCollectionAnalyticsSchema.omit({ _id: true, lastUpdated: true });
+
+// -----------------------------
+// 🔹 Fan Club Analytics Schema
+// -----------------------------
+export const fanClubAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  fanClubId: ObjectIdType,
+  artistId: ObjectIdType,
+  userId: ObjectIdType.optional(),
+  action: z.enum([
+    "fan_club_join", "fan_club_leave", "fan_club_post", "fan_club_comment",
+    "fan_club_like", "fan_club_share", "fan_club_content_unlock",
+    "fan_club_exclusive_access", "fan_club_merch_discount", "fan_club_event_priority"
+  ]),
+  tier: z.enum(["bronze", "silver", "gold", "platinum"]).optional(),
+  value: z.number().optional(), // Revenue, engagement score, etc.
+  metadata: z.object({
+    contentId: ObjectIdType.optional(),
+    contentType: z.string().optional(),
+    engagementType: z.string().optional(),
+    timeSpent: z.number().optional(), // seconds
+    nftOwned: z.array(ObjectIdType).optional() // NFTs owned by user
+  }).default({}),
+  timestamp: z.date().default(() => new Date())
+});
+
+export const insertFanClubAnalyticsSchema = fanClubAnalyticsSchema.omit({ _id: true, timestamp: true });
+
+// -----------------------------
+// 🔹 DAO Analytics Schema
+// -----------------------------
+export const daoAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  daoId: ObjectIdType,
+  userId: ObjectIdType.optional(),
+  proposalId: ObjectIdType.optional(),
+  action: z.enum([
+    "dao_proposal_create", "dao_proposal_vote", "dao_proposal_pass", "dao_proposal_fail",
+    "dao_token_earned", "dao_token_spent", "dao_governance_participate",
+    "dao_treasury_deposit", "dao_treasury_withdrawal", "dao_member_join", "dao_member_leave"
+  ]),
+  value: z.number().optional(), // Token amount, vote weight, etc.
+  metadata: z.object({
+    voteChoice: z.string().optional(),
+    tokenAmount: z.number().optional(),
+    proposalType: z.string().optional(),
+    votingPower: z.number().optional(),
+    quorumReached: z.boolean().optional()
+  }).default({}),
+  timestamp: z.date().default(() => new Date())
+});
+
+export const insertDaoAnalyticsSchema = daoAnalyticsSchema.omit({ _id: true, timestamp: true });
+
+// -----------------------------
+// 🔹 Cross-Chain Analytics Schema
+// -----------------------------
+export const crossChainAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  userId: ObjectIdType,
+  nftId: ObjectIdType.optional(),
+  action: z.enum([
+    "cross_chain_transfer", "cross_chain_bridge", "cross_chain_swap",
+    "cross_chain_mint", "cross_chain_burn", "cross_chain_lock", "cross_chain_unlock"
+  ]),
+  fromChain: z.string(), // ethereum, polygon, bsc, etc.
+  toChain: z.string(),
+  value: z.number().optional(), // Amount transferred
+  currency: z.string().optional(),
+  metadata: z.object({
+    bridgeProtocol: z.string().optional(),
+    transactionHash: z.string().optional(),
+    gasFee: z.number().optional(),
+    bridgeFee: z.number().optional(),
+    estimatedTime: z.number().optional(), // minutes
+    actualTime: z.number().optional() // minutes
+  }).default({}),
+  timestamp: z.date().default(() => new Date())
+});
+
+export const insertCrossChainAnalyticsSchema = crossChainAnalyticsSchema.omit({ _id: true, timestamp: true });
+
+// -----------------------------
+// 🔹 Loyalty & Gamification Analytics Schema
+// -----------------------------
+export const loyaltyAnalyticsSchema = z.object({
+  _id: ObjectIdType,
+  userId: ObjectIdType,
+  action: z.enum([
+    "loyalty_points_earned", "loyalty_points_spent", "achievement_unlocked",
+    "badge_earned", "level_up", "streak_maintained", "quest_completed",
+    "reward_claimed", "milestone_reached", "leaderboard_rank_up"
+  ]),
+  value: z.number().optional(), // Points earned/spent
+  metadata: z.object({
+    achievementId: z.string().optional(),
+    badgeId: z.string().optional(),
+    level: z.number().optional(),
+    streakDays: z.number().optional(),
+    questId: z.string().optional(),
+    rewardType: z.string().optional(),
+    leaderboardPosition: z.number().optional(),
+    totalParticipants: z.number().optional()
+  }).default({}),
+  timestamp: z.date().default(() => new Date())
+});
+
+export const insertLoyaltyAnalyticsSchema = loyaltyAnalyticsSchema.omit({ _id: true, timestamp: true });
+
+// -----------------------------
 // 🔹 Type Exports
 // -----------------------------
 export type Analytics = z.infer<typeof analyticsSchema>;
@@ -202,3 +395,17 @@ export type EcommerceAnalytics = z.infer<typeof ecommerceAnalyticsSchema>;
 export type InsertEcommerceAnalytics = z.infer<typeof insertEcommerceAnalyticsSchema>;
 export type ContentPerformance = z.infer<typeof contentPerformanceSchema>;
 export type InsertContentPerformance = z.infer<typeof insertContentPerformanceSchema>;
+
+// NFT Ecosystem Types
+export type NFTAnalytics = z.infer<typeof nftAnalyticsSchema>;
+export type InsertNFTAnalytics = z.infer<typeof insertNftAnalyticsSchema>;
+export type NFTCollectionAnalytics = z.infer<typeof nftCollectionAnalyticsSchema>;
+export type InsertNFTCollectionAnalytics = z.infer<typeof insertNftCollectionAnalyticsSchema>;
+export type FanClubAnalytics = z.infer<typeof fanClubAnalyticsSchema>;
+export type InsertFanClubAnalytics = z.infer<typeof insertFanClubAnalyticsSchema>;
+export type DAOAnalytics = z.infer<typeof daoAnalyticsSchema>;
+export type InsertDAOAnalytics = z.infer<typeof insertDaoAnalyticsSchema>;
+export type CrossChainAnalytics = z.infer<typeof crossChainAnalyticsSchema>;
+export type InsertCrossChainAnalytics = z.infer<typeof insertCrossChainAnalyticsSchema>;
+export type LoyaltyAnalytics = z.infer<typeof loyaltyAnalyticsSchema>;
+export type InsertLoyaltyAnalytics = z.infer<typeof insertLoyaltyAnalyticsSchema>;

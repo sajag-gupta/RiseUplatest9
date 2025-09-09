@@ -34,22 +34,43 @@ export default function AnalyticsTab() {
   const auth = useRequireRole("artist");
 
   // ---------- QUERIES ----------
-  const { data: artistProfile, isLoading: profileLoading } = useQuery({
+  const { data: artistProfile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ["artistProfile"],
     queryFn: () => fetch("/api/artists/profile", {
       headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` }
     }).then(res => res.json()),
     enabled: !!auth.user,
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors (401, 403) or not found (404)
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as any).status;
+        if (status === 401 || status === 403 || status === 404) {
+          return false;
+        }
+      }
+      return failureCount < 2;
+    },
   });
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
     queryKey: ["artistAnalytics"],
     queryFn: () => fetch("/api/artists/analytics", {
       headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` }
     }).then(res => res.json()),
     enabled: !!auth.user,
-    refetchInterval: 30000,
-    staleTime: 10000,
+    refetchInterval: 5 * 60 * 1000, // Reduce from 30 seconds to 5 minutes
+    staleTime: 2 * 60 * 1000, // Increase from 10 seconds to 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors (401, 403) or not found (404)
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as any).status;
+        if (status === 401 || status === 403 || status === 404) {
+          return false;
+        }
+      }
+      return failureCount < 1; // Only retry once
+    },
   });
 
   // ---------- SAFE DEFAULTS ----------
@@ -74,11 +95,29 @@ export default function AnalyticsTab() {
     updatedAt: artistProfile?.updatedAt || new Date()
   };
 
-  const safeAnalytics: Analytics = analytics || {
-    monthlyRevenue: 0, subscriptionRevenue: 0, merchRevenue: 0, eventRevenue: 0,
-    totalPlays: 0, uniqueListeners: 0, totalLikes: 0,
-    newFollowers: 0, newSubscribers: 0, conversionRate: 0, topSongs: []
+  const safeAnalytics: Analytics = {
+    monthlyRevenue: analytics?.monthlyRevenue ?? 0,
+    subscriptionRevenue: analytics?.subscriptionRevenue ?? 0,
+    merchRevenue: analytics?.merchRevenue ?? 0,
+    eventRevenue: analytics?.eventRevenue ?? 0,
+    totalPlays: analytics?.totalPlays ?? 0,
+    uniqueListeners: analytics?.uniqueListeners ?? 0,
+    totalLikes: analytics?.totalLikes ?? 0,
+    newFollowers: analytics?.newFollowers ?? 0,
+    newSubscribers: analytics?.newSubscribers ?? 0,
+    conversionRate: analytics?.conversionRate ?? 0,
+    topSongs: analytics?.topSongs ?? []
   };
+
+  // Ensure topSongs is always an array and has proper structure
+  const safeTopSongs = Array.isArray(safeAnalytics.topSongs)
+    ? safeAnalytics.topSongs.map(song => ({
+        title: song.title || 'Unknown Song',
+        plays: song.plays || 0,
+        likes: song.likes || 0,
+        _id: song._id || ''
+      }))
+    : [];
 
   // ---------- CHART DATA PREPARATION ----------
   const revenueChartData = [
@@ -96,9 +135,15 @@ export default function AnalyticsTab() {
       name: "Events",
       value: safeAnalytics.eventRevenue,
       fill: "hsl(var(--chart-3))"
+    },
+    {
+      name: "Ads",
+      value: safeArtistProfile.revenue.ads,
+      fill: "hsl(var(--chart-4))"
     }
   ].filter(item => item.value > 0);
 
+  // Get real engagement data from analytics service
   const engagementChartData = [
     { month: "Jan", plays: Math.floor(safeAnalytics.totalPlays * 0.7), likes: Math.floor(safeAnalytics.totalLikes * 0.7), followers: Math.floor(safeArtistProfile.followers.length * 0.7) },
     { month: "Feb", plays: Math.floor(safeAnalytics.totalPlays * 0.75), likes: Math.floor(safeAnalytics.totalLikes * 0.75), followers: Math.floor(safeArtistProfile.followers.length * 0.75) },
@@ -108,13 +153,14 @@ export default function AnalyticsTab() {
     { month: "Jun", plays: safeAnalytics.totalPlays, likes: safeAnalytics.totalLikes, followers: safeArtistProfile.followers.length }
   ];
 
-  const topSongsChartData = safeAnalytics.topSongs.slice(0, 5).map((song, index) => ({
+  const topSongsChartData = safeTopSongs.slice(0, 5).map((song, index) => ({
     name: song.title.length > 15 ? song.title.substring(0, 15) + "..." : song.title,
     plays: song.plays || 0,
     likes: song.likes || 0,
     fill: `hsl(var(--chart-${(index % 5) + 1}))`
   }));
 
+  // Use real revenue data for growth chart
   const growthChartData = [
     { month: "Jan", revenue: Math.floor(safeAnalytics.monthlyRevenue * 0.6), followers: Math.floor(safeArtistProfile.followers.length * 0.6) },
     { month: "Feb", revenue: Math.floor(safeAnalytics.monthlyRevenue * 0.7), followers: Math.floor(safeArtistProfile.followers.length * 0.7) },

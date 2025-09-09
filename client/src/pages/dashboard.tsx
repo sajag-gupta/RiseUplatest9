@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Crown, Package, Music, Heart, Calendar, Settings, CreditCard, Download, Star, Users, ShoppingBag } from "lucide-react";
+import { Crown, Package, Music, Heart, Calendar, Settings, CreditCard, Download, Star, Users, ShoppingBag, BarChart3, TrendingUp, Play, ThumbsUp, Eye, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,8 @@ import { usePlayer } from "@/hooks/use-player";
 import Loading from "@/components/common/loading";
 import Sidebar from "@/components/layout/sidebar";
 import { Link, useLocation } from "wouter";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 export default function Dashboard() {
   const auth = useRequireAuth();
@@ -50,6 +52,22 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch user analytics
+  const { data: userAnalytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ["/api/analytics/users", auth.user?._id, { days: 30 }],
+    queryFn: async () => {
+      const response = await fetch(`/api/analytics/users/${auth.user!._id}?days=30`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user analytics');
+      }
+      return response.json();
+    },
+    enabled: !!auth.user,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
   if (auth.isLoading) {
     return (
       <div className="min-h-screen pt-16">
@@ -88,8 +106,9 @@ export default function Dashboard() {
             setActiveTab(value);
             window.history.pushState({}, '', `?tab=${value}`);
           }}>
-            <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsList className="grid w-full grid-cols-6 mb-8">
               <TabsTrigger value="overview" data-testid="overview-tab">Overview</TabsTrigger>
+              <TabsTrigger value="analytics" data-testid="analytics-tab">Analytics</TabsTrigger>
               <TabsTrigger value="subscriptions" data-testid="subscriptions-tab">Subscriptions</TabsTrigger>
               <TabsTrigger value="orders" data-testid="orders-tab">Orders</TabsTrigger>
               <TabsTrigger value="returns" data-testid="returns-tab">Returns</TabsTrigger>
@@ -182,6 +201,241 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            {/* Analytics Tab */}
+            <TabsContent value="analytics">
+              {analyticsLoading ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-6">
+                          <div className="h-4 bg-muted rounded mb-2"></div>
+                          <div className="h-8 bg-muted rounded"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  <Card className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-64 bg-muted rounded"></div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : analyticsError ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Unable to Load Analytics</h3>
+                    <p className="text-muted-foreground mb-4">
+                      There was an error loading your analytics data. Please try again later.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => window.location.reload()}
+                    >
+                      Retry
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : !userAnalytics ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Analytics Data Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start listening to music, liking songs, and making purchases to see your analytics here.
+                    </p>
+                    <Link href="/discover">
+                      <Button>Discover Music</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Plays</CardTitle>
+                        <Play className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{userAnalytics.totalPlays || 0}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Songs played this month
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Likes</CardTitle>
+                        <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{userAnalytics.totalLikes || 0}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Songs liked this month
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">₹{userAnalytics.totalRevenue || 0}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Spent on platform
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Session Count</CardTitle>
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{userAnalytics.sessionCount || 0}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Platform visits
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Charts Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Activity Breakdown */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Activity Breakdown</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ChartContainer
+                          config={{
+                            plays: {
+                              label: "Plays",
+                              color: "hsl(var(--chart-1))",
+                            },
+                            likes: {
+                              label: "Likes",
+                              color: "hsl(var(--chart-2))",
+                            },
+                            purchases: {
+                              label: "Purchases",
+                              color: "hsl(var(--chart-3))",
+                            },
+                          }}
+                          className="h-[300px]"
+                        >
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Plays', value: userAnalytics.totalPlays || 0, fill: 'hsl(var(--chart-1))' },
+                                { name: 'Likes', value: userAnalytics.totalLikes || 0, fill: 'hsl(var(--chart-2))' },
+                                { name: 'Purchases', value: userAnalytics.totalPurchases || 0, fill: 'hsl(var(--chart-3))' },
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              <Cell fill="hsl(var(--chart-1))" />
+                              <Cell fill="hsl(var(--chart-2))" />
+                              <Cell fill="hsl(var(--chart-3))" />
+                            </Pie>
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                          </PieChart>
+                        </ChartContainer>
+                      </CardContent>
+                    </Card>
+
+                    {/* Listening Hours Trend */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Listening Activity</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ChartContainer
+                          config={{
+                            hours: {
+                              label: "Hours",
+                              color: "hsl(var(--chart-1))",
+                            },
+                          }}
+                          className="h-[300px]"
+                        >
+                          <BarChart
+                            data={[
+                              { name: 'Week 1', hours: (userAnalytics.listeningHours || 0) * 0.25 },
+                              { name: 'Week 2', hours: (userAnalytics.listeningHours || 0) * 0.3 },
+                              { name: 'Week 3', hours: (userAnalytics.listeningHours || 0) * 0.25 },
+                              { name: 'Week 4', hours: (userAnalytics.listeningHours || 0) * 0.2 },
+                            ]}
+                          >
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Bar dataKey="hours" fill="hsl(var(--chart-1))" />
+                          </BarChart>
+                        </ChartContainer>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Additional Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Favorite Genres</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {userAnalytics.favoriteGenres && userAnalytics.favoriteGenres.length > 0 ? (
+                            userAnalytics.favoriteGenres.slice(0, 3).map((genre: string, index: number) => (
+                              <div key={index} className="flex justify-between items-center">
+                                <span className="text-sm">{genre}</span>
+                                <Badge variant="secondary">#{index + 1}</Badge>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No genre data yet</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Search Activity</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{userAnalytics.totalSearches || 0}</div>
+                        <p className="text-xs text-muted-foreground">Searches performed</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Follow Activity</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{userAnalytics.totalFollows || 0}</div>
+                        <p className="text-xs text-muted-foreground">Artists followed</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Subscriptions Tab */}

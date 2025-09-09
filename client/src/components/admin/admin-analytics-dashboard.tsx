@@ -17,6 +17,16 @@ export default function AdminAnalyticsDashboard() {
     }).then(res => res.json()),
     enabled: true,
     staleTime: 5 * 60 * 1000,
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as any).status;
+        if (status === 401 || status === 403) {
+          return false;
+        }
+      }
+      return failureCount < 2;
+    },
   });
 
   // Fetch retention metrics
@@ -69,6 +79,36 @@ export default function AdminAnalyticsDashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch NFT analytics
+  const { data: nftAnalytics, isLoading: nftLoading } = useQuery({
+    queryKey: ["/api/analytics/nfts/marketplace", timeRange],
+    queryFn: () => fetch(`/api/analytics/nfts/marketplace?days=${timeRange}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('ruc_auth_token')}` }
+    }).then(res => res.json()),
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch ad analytics
+  const { data: adAnalytics, isLoading: adLoading } = useQuery({
+    queryKey: ["/api/analytics/ads/platform", timeRange],
+    queryFn: () => fetch(`/api/analytics/ads/platform?days=${timeRange}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('ruc_auth_token')}` }
+    }).then(res => res.json()),
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch cross-system analytics
+  const { data: crossSystemAnalytics, isLoading: crossSystemLoading } = useQuery({
+    queryKey: ["/api/analytics/platform/cross-system", timeRange],
+    queryFn: () => fetch(`/api/analytics/platform/cross-system?days=${timeRange}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('ruc_auth_token')}` }
+    }).then(res => res.json()),
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+  });
+
   if (platformLoading || retentionLoading || ecommerceLoading || subscriptionLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -97,11 +137,13 @@ export default function AdminAnalyticsDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="nfts">NFTs</TabsTrigger>
+          <TabsTrigger value="ads">Ads</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
         </TabsList>
 
@@ -361,6 +403,185 @@ export default function AdminAnalyticsDashboard() {
               ) : (
                 <p className="text-muted-foreground text-center py-4">No revenue data available</p>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* NFTs Tab */}
+        <TabsContent value="nfts" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total NFT Mints</CardTitle>
+                <Music className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{nftAnalytics?.totalMints?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">NFTs created</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total NFT Sales</CardTitle>
+                <DollarSign className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{nftAnalytics?.totalPurchases?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">NFT transactions</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">NFT Volume</CardTitle>
+                <TrendingUp className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₹{nftAnalytics?.totalVolume?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">Total transaction value</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg NFT Price</CardTitle>
+                <BarChart3 className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₹{nftAnalytics?.averagePrice?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">Average sale price</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>NFT Marketplace Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Total NFT Views</span>
+                    <span className="font-medium">{nftAnalytics?.totalViews?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Total NFT Likes</span>
+                    <span className="font-medium">{nftAnalytics?.totalLikes?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Total NFT Bids</span>
+                    <span className="font-medium">{nftAnalytics?.totalBids?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Engagement Rate</span>
+                    <span className="font-medium">{nftAnalytics?.engagementRate ? Math.round(nftAnalytics.engagementRate) : 0}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Conversion Rate</span>
+                    <span className="font-medium">
+                      {nftAnalytics?.totalViews && nftAnalytics?.totalPurchases ?
+                        Math.round((nftAnalytics.totalPurchases / nftAnalytics.totalViews) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Ads Tab */}
+        <TabsContent value="ads" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ad Impressions</CardTitle>
+                <Play className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{adAnalytics?.totalImpressions?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">Total ad views</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ad Clicks</CardTitle>
+                <Heart className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{adAnalytics?.totalClicks?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">User interactions</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {adAnalytics?.totalImpressions && adAnalytics?.totalClicks ?
+                    Math.round((adAnalytics.totalClicks / adAnalytics.totalImpressions) * 100) : 0}%
+                </div>
+                <p className="text-xs text-muted-foreground">CTR performance</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ad Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₹{adAnalytics?.totalRevenue?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">From ad earnings</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ad Performance Metrics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Completions</span>
+                    <span className="font-medium">{adAnalytics?.totalCompletions?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Completion Rate</span>
+                    <span className="font-medium">
+                      {adAnalytics?.totalImpressions && adAnalytics?.totalCompletions ?
+                        Math.round((adAnalytics.totalCompletions / adAnalytics.totalImpressions) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Artist Share</span>
+                    <span className="font-medium">₹{adAnalytics?.artistShare?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Platform Share</span>
+                    <span className="font-medium">₹{adAnalytics?.platformShare?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Avg CPM</span>
+                    <span className="font-medium">₹{adAnalytics?.averageCPM?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Avg CPC</span>
+                    <span className="font-medium">₹{adAnalytics?.averageCPC?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -5,53 +5,53 @@
 
 :root {
   /* Light Theme Colors (Default) */
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(0, 0%, 0%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(0, 0%, 0%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(0, 0%, 0%);
-  
+  --background: hsl(0, 0%, 100%); /* #FFFFFF */
+  --foreground: hsl(0, 0%, 7%); /* #111111 */
+  --card: hsl(0, 0%, 98%); /* #FAFAFA */
+  --card-foreground: hsl(0, 0%, 7%); /* #111111 */
+  --popover: hsl(0, 0%, 98%); /* #FAFAFA */
+  --popover-foreground: hsl(0, 0%, 7%); /* #111111 */
+
   /* Primary Red Gradient */
   --primary: hsl(4, 100%, 58%); /* #FF3C2A */
   --primary-foreground: hsl(0, 0%, 100%);
   --primary-dark: hsl(4, 91%, 24%); /* #7A0C0C */
-  
+
   /* Secondary Accent */
   --secondary: hsl(12, 100%, 60%); /* #FF5A36 */
   --secondary-foreground: hsl(0, 0%, 100%);
-  
+
   /* Surface and borders - Light */
-  --muted: hsl(0, 0%, 96%); /* #f5f5f5 */
-  --muted-foreground: hsl(0, 0%, 40%); /* #666666 */
+  --muted: hsl(0, 0%, 96%); /* #F5F5F5 */
+  --muted-foreground: hsl(0, 0%, 27%); /* #444444 */
   --accent: hsl(4, 100%, 58%);
   --accent-foreground: hsl(0, 0%, 100%);
-  --destructive: hsl(0, 84%, 60%);
+  --destructive: hsl(0, 100%, 50%); /* #dc2626 */
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(0, 0%, 90%); /* #e5e5e5 */
-  --input: hsl(0, 0%, 96%);
+  --border: hsl(0, 0%, 87%); /* #DDDDDD */
+  --input: hsl(0, 0%, 92%); /* #EAEAEA */
   --ring: hsl(4, 100%, 58%);
-  
+
   /* Success and warning */
-  --success: hsl(142, 76%, 47%); /* #22c55e */
-  --warning: hsl(38, 92%, 50%); /* #f59e0b */
-  --info: hsl(217, 100%, 67%); /* #5A8FFF */
+  --success: hsl(142, 71%, 45%); /* #16a34a */
+  --warning: hsl(25, 95%, 53%); /* #ca8a04 */
+  --info: hsl(221, 83%, 53%); /* #2563eb */
 
   /* Chart colors */
   --chart-1: hsl(4, 100%, 58%);
-  --chart-2: hsl(142, 76%, 47%);
-  --chart-3: hsl(38, 92%, 50%);
-  --chart-4: hsl(217, 100%, 67%);
+  --chart-2: hsl(142, 71%, 45%);
+  --chart-3: hsl(25, 95%, 53%);
+  --chart-4: hsl(221, 83%, 53%);
   --chart-5: hsl(330, 75%, 51%);
-  
+
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-serif: 'Georgia', serif;
   --font-mono: 'JetBrains Mono', 'Consolas', monospace;
-  
+
   /* Border radius */
   --radius: 1rem;
-  
+
   /* Spacing */
   --spacing: 0.25rem;
 }
@@ -93,7 +93,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background: linear-gradient(135deg, hsl(0, 0%, 0%) 0%, hsl(0, 0%, 4%) 100%);
+    background: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 96%) 100%);
     min-height: 100vh;
   }
 
@@ -103,7 +103,7 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: hsl(0, 0%, 8%);
+    background: hsl(0, 0%, 92%);
   }
 
   ::-webkit-scrollbar-thumb {
@@ -119,7 +119,7 @@
 @layer components {
   /* Gradient utilities */
   .gradient-bg {
-    background: linear-gradient(135deg, hsl(0, 0%, 0%) 0%, hsl(0, 0%, 4%) 100%);
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
   }
 
   .gradient-primary {
@@ -133,8 +133,8 @@
   /* Glass effect */
   .glass-effect {
     backdrop-filter: blur(10px);
-    background: hsla(0, 0%, 8%, 0.8);
-    border: 1px solid hsla(0, 0%, 100%, 0.1);
+    background: hsla(var(--background), 0.8);
+    border: 1px solid hsla(var(--border), 0.3);
   }
 
   /* Hover effects */
@@ -374,7 +374,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, hsla(0, 0%, 0%, 0.7) 0%, hsla(4, 100%, 58%, 0.1) 100%);
+  background: linear-gradient(135deg, hsla(var(--background), 0.7) 0%, hsla(4, 100%, 58%, 0.1) 100%);
   z-index: 1;
 }
 

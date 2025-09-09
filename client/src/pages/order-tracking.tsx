@@ -90,6 +90,21 @@ export default function OrderTracking() {
     enabled: !!orderId && !!auth.user,
   });
 
+  // Fetch return requests for this order
+  const { data: returnRequests, isLoading: returnsLoading } = useQuery({
+    queryKey: ["/api/returns/me"],
+    queryFn: async () => {
+      const response = await fetch("/api/returns/me", {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('ruc_auth_token')}`
+        }
+      });
+      if (!response.ok) throw new Error("Failed to fetch returns");
+      return response.json();
+    },
+    enabled: !!orderId && !!auth.user,
+  });
+
   // Return request mutation
   const returnRequestMutation = useMutation({
     mutationFn: async (returnData: any) => {
@@ -215,6 +230,13 @@ export default function OrderTracking() {
 
     // Allow returns within 60 days for testing
     return daysSinceOrder <= 60;
+  };
+
+  const hasExistingReturnRequest = () => {
+    if (!returnRequests || !Array.isArray(returnRequests)) return false;
+
+    // Check if there's already a return request for this order
+    return returnRequests.some((returnRequest: any) => returnRequest.orderId === orderId);
   };
 
   if (!auth.user) return null;
@@ -448,8 +470,101 @@ export default function OrderTracking() {
           </CardContent>
         </Card>
 
+        {/* Return Status */}
+        {returnRequests && Array.isArray(returnRequests) && returnRequests.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <RotateCcw className="w-5 h-5 mr-2" />
+                Return Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {returnRequests
+                  .filter((returnRequest: any) => returnRequest.orderId === orderId)
+                  .map((returnRequest: any, index: number) => (
+                    <div key={returnRequest._id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium">Return Request #{returnRequest._id.slice(-6)}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Requested on {new Date(returnRequest.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            returnRequest.status === 'APPROVED' ? "default" :
+                            returnRequest.status === 'REQUESTED' ? "secondary" :
+                            returnRequest.status === 'REJECTED' ? "destructive" :
+                            "outline"
+                          }
+                        >
+                          {returnRequest.status}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="text-sm font-medium mb-2">Return Reason</h5>
+                          <p className="text-sm text-muted-foreground">{returnRequest.reason}</p>
+                        </div>
+
+                        {returnRequest.refundAmount && (
+                          <div>
+                            <h5 className="text-sm font-medium mb-2">Refund Amount</h5>
+                            <p className="text-sm font-semibold text-primary">₹{returnRequest.refundAmount}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {returnRequest.adminNotes && (
+                        <div className="mt-3 p-3 bg-muted/50 rounded">
+                          <h5 className="text-sm font-medium mb-1">Admin Notes</h5>
+                          <p className="text-sm text-muted-foreground">{returnRequest.adminNotes}</p>
+                        </div>
+                      )}
+
+                      {returnRequest.status === 'REQUESTED' && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-sm text-yellow-800">
+                            Your return request is being reviewed. We'll update you once it's processed.
+                          </p>
+                        </div>
+                      )}
+
+                      {returnRequest.status === 'APPROVED' && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                          <p className="text-sm text-green-800">
+                            Your return request has been approved. Please return the items as per the instructions provided.
+                          </p>
+                        </div>
+                      )}
+
+                      {returnRequest.status === 'REJECTED' && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                          <p className="text-sm text-red-800">
+                            Your return request has been rejected. {returnRequest.adminNotes || 'Please contact support for more information.'}
+                          </p>
+                        </div>
+                      )}
+
+                      {returnRequest.status === 'REFUNDED' && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-sm text-blue-800">
+                            Your refund has been processed successfully. The amount will be credited to your original payment method.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Return Request */}
-        {isReturnEligible() && (
+        {isReturnEligible() && !hasExistingReturnRequest() && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center">

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SkipForward, Volume2, VolumeX, ExternalLink } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AudioAdData {
   _id: string;
@@ -25,6 +26,7 @@ interface AudioAdProps {
 }
 
 export default function AudioAd({ adId, onComplete, onSkip, canSkip = false, className = "" }: AudioAdProps) {
+  const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -32,6 +34,15 @@ export default function AudioAd({ adId, onComplete, onSkip, canSkip = false, cla
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
+
+  // Check if user has premium features (skip ads for any paid plan)
+  const isPremiumUser = user?.plan?.type && user.plan.type !== "FREE";
+
+  // If user is premium, don't show ads
+  if (isPremiumUser) {
+    onComplete(); // Complete immediately for premium users
+    return null;
+  }
 
   // Fetch ad details
   const { data: ad, isLoading } = useQuery<AudioAdData>({

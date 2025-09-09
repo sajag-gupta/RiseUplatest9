@@ -16,15 +16,15 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.sendStatus(401);
+    return res.status(401).json({ message: "Authentication token required" });
   }
 
-  jwt.verify(token, process.env.SESSION_SECRET || "your-secret-key-here", (err, decoded) => {
+  jwt.verify(token, process.env.SESSION_SECRET || "your-secret-key-here", (err: jwt.VerifyErrors | null, decoded: jwt.JwtPayload | string | undefined) => {
     if (err) {
-      return res.sendStatus(403);
+      return res.status(403).json({ message: "Invalid or expired token" });
     }
 
-    const decodedToken = decoded as any;
+    const decodedToken = decoded as jwt.JwtPayload;
 
     // Make sure we have the userId field from the token
     req.user = {

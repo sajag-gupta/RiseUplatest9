@@ -319,6 +319,128 @@ export const getCurrentArtistAnalytics = async (req: Request, res: Response) => 
   }
 };
 
+// ===================
+// NFT ANALYTICS ROUTES
+// ===================
+
+// Get NFT analytics
+export const getNFTAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { nftId } = req.params;
+    const { days = 30 } = req.query;
+
+    const analytics = await AnalyticsService.getNFTAnalytics(nftId, parseInt(days as string));
+
+    if (!analytics) {
+      return res.status(404).json({ error: "NFT analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting NFT analytics:', error);
+    res.status(500).json({ error: "Failed to get NFT analytics" });
+  }
+};
+
+// Get NFT marketplace analytics
+export const getNFTMarketplaceAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+
+    const analytics = await AnalyticsService.getNFTMarketplaceAnalytics(parseInt(days as string));
+
+    if (!analytics) {
+      return res.status(404).json({ error: "NFT marketplace analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting NFT marketplace analytics:', error);
+    res.status(500).json({ error: "Failed to get NFT marketplace analytics" });
+  }
+};
+
+// Get artist NFT analytics
+export const getArtistNFTAlytics = async (req: Request, res: Response) => {
+  try {
+    const { artistId } = req.params;
+    const { days = 30 } = req.query;
+
+    const analytics = await AnalyticsService.getArtistNFTAlytics(artistId, parseInt(days as string));
+
+    if (!analytics) {
+      return res.status(404).json({ error: "Artist NFT analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting artist NFT analytics:', error);
+    res.status(500).json({ error: "Failed to get artist NFT analytics" });
+  }
+};
+
+// Get current user's NFT analytics
+export const getCurrentUserNFTAlytics = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const analytics = await AnalyticsService.getArtistNFTAlytics(user._id, 30);
+
+    if (!analytics) {
+      return res.status(404).json({ error: "User NFT analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting current user NFT analytics:', error);
+    res.status(500).json({ error: "Failed to get user NFT analytics" });
+  }
+};
+
+// ===================
+// CROSS-SYSTEM ANALYTICS ROUTES
+// ===================
+
+// Get user cross-system engagement
+export const getUserCrossSystemEngagement = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { days = 30 } = req.query;
+
+    const analytics = await AnalyticsService.getUserCrossSystemEngagement(userId, parseInt(days as string));
+
+    if (!analytics) {
+      return res.status(404).json({ error: "User cross-system analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting user cross-system engagement:', error);
+    res.status(500).json({ error: "Failed to get user cross-system engagement" });
+  }
+};
+
+// Get platform cross-system analytics
+export const getPlatformCrossSystemAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+
+    const analytics = await AnalyticsService.getPlatformCrossSystemAnalytics(parseInt(days as string));
+
+    if (!analytics) {
+      return res.status(404).json({ error: "Platform cross-system analytics not found" });
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting platform cross-system analytics:', error);
+    res.status(500).json({ error: "Failed to get platform cross-system analytics" });
+  }
+};
+
 // Generic analytics tracking endpoint
 export const trackGenericAnalytics = async (req: Request, res: Response) => {
   try {
@@ -379,4 +501,22 @@ export function setupAnalyticsRoutes(app: any) {
   app.get("/api/analytics/retention", getRetentionMetrics);
   app.get("/api/analytics/ecommerce", getEcommerceAnalytics);
   app.get("/api/analytics/subscriptions", getSubscriptionAnalytics);
+
+  // ===================
+  // NFT ANALYTICS ROUTES
+  // ===================
+
+  // NFT analytics
+  app.get("/api/analytics/nfts/:nftId", requireAuth, getNFTAnalytics);
+  app.get("/api/analytics/nfts/marketplace", requireAuth, getNFTMarketplaceAnalytics);
+  app.get("/api/analytics/artists/:artistId/nfts", requireAuth, getArtistNFTAlytics);
+  app.get("/api/artists/analytics/nfts", requireAuth, getCurrentUserNFTAlytics);
+
+  // ===================
+  // CROSS-SYSTEM ANALYTICS ROUTES
+  // ===================
+
+  // Cross-system engagement analytics
+  app.get("/api/analytics/users/:userId/cross-system", requireAuth, getUserCrossSystemEngagement);
+  app.get("/api/analytics/platform/cross-system", requireAuth, getPlatformCrossSystemAnalytics);
 }

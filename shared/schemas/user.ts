@@ -41,8 +41,10 @@ export const userSchema = z.object({
   }).default({ personalized: true, categories: [] }),
 
   plan: z.object({
-    type: z.enum(["FREE", "PREMIUM"]),
-    renewsAt: z.date().optional()
+    type: z.enum(["FREE", "PREMIUM", "ARTIST"]),
+    renewsAt: z.date().optional(),
+    paymentId: z.string().optional(),
+    subscriptionId: z.string().optional()
   }).default({ type: "FREE" }),
 
   // Artist-only fields (applies only if role = artist)
@@ -67,6 +69,21 @@ export const userSchema = z.object({
     featured: z.boolean().default(false),
     verified: z.boolean().default(false),
   }).optional(),
+
+  // Admin fields
+  banned: z.boolean().default(false),
+  banReason: z.string().optional(),
+  banUntil: z.date().optional(),
+  bannedAt: z.date().optional(),
+  bannedBy: z.string().optional(),
+  unbannedAt: z.date().optional(),
+  unbannedBy: z.string().optional(),
+  passwordResetAt: z.date().optional(),
+  passwordResetBy: z.string().optional(),
+  roleChangedAt: z.date().optional(),
+  roleChangedBy: z.string().optional(),
+  roleChangeReason: z.string().optional(),
+  deleted: z.boolean().default(false),
 
   createdAt: z.date().default(() => new Date()),
   lastLogin: z.date().optional()

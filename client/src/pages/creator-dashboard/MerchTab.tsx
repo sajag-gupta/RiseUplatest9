@@ -40,7 +40,10 @@ export default function MerchTab() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries to update analytics
       queryClient.invalidateQueries({ queryKey: ["artistMerch"] });
+      queryClient.invalidateQueries({ queryKey: ["artistAnalytics"] });
+      queryClient.invalidateQueries({ queryKey: ["artistProfile"] });
       toast({
         title: "Merchandise added successfully",
         description: "Your product is now available in your store",

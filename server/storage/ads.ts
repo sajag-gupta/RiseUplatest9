@@ -200,6 +200,16 @@ export class AdStorage extends BaseStorage {
     }
   }
 
+  async getAllAudioAds(): Promise<AudioAd[]> {
+    try {
+      const ads = await this.audioAds.find({}).toArray();
+      return ads.map(a => this.convertAudioAdDoc(a));
+    } catch (error) {
+      console.error('Error getting all audio ads:', error);
+      return [];
+    }
+  }
+
   async createAudioAd(ad: InsertAudioAd): Promise<AudioAd> {
     const adDoc: Omit<AudioAdDoc, '_id'> = {
       ...ad,
@@ -243,8 +253,13 @@ export class AdStorage extends BaseStorage {
   // Banner Ad methods
   async getBannerAd(id: string): Promise<BannerAd | undefined> {
     try {
-      if (!ObjectId.isValid(id)) return undefined;
-      const ad = await this.bannerAds.findOne({ _id: new ObjectId(id) });
+      if (!ObjectId.isValid(id)) {
+        return undefined;
+      }
+
+      const objectId = new ObjectId(id);
+      const ad = await this.bannerAds.findOne({ _id: objectId });
+
       return ad ? this.convertBannerAdDoc(ad) : undefined;
     } catch (error) {
       console.error('Error getting banner ad:', error);
@@ -258,6 +273,16 @@ export class AdStorage extends BaseStorage {
       return ads.map(a => this.convertBannerAdDoc(a));
     } catch (error) {
       console.error('Error getting banner ads by campaign:', error);
+      return [];
+    }
+  }
+
+  async getAllBannerAds(): Promise<BannerAd[]> {
+    try {
+      const ads = await this.bannerAds.find({}).toArray();
+      return ads.map(a => this.convertBannerAdDoc(a));
+    } catch (error) {
+      console.error('Error getting all banner ads:', error);
       return [];
     }
   }
@@ -575,4 +600,28 @@ export class AdStorage extends BaseStorage {
     const result = await this.db.collection('songAdSettings').deleteOne({ songId });
     return result.deletedCount > 0;
   }
+
+  // Placeholder implementations for NFT methods
+  async getAllNFTs(): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFT(id: string): Promise<any> { throw new Error("Not implemented"); }
+  async getNFTsByUser(userId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async createNFT(nft: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFT(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFT(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async getListedNFTs(): Promise<any[]> { throw new Error("Not implemented"); }
+  async getActiveAuctions(): Promise<any[]> { throw new Error("Not implemented"); }
+  async createNFTListing(listing: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFTListing(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFTListing(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async createNFTAuction(auction: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFTAuction(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFTAuction(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async createNFTTransaction(transaction: any): Promise<any> { throw new Error("Not implemented"); }
+  async getNFTTransactions(nftId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFTTransactionsByUser(userId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFTStats(): Promise<any> { throw new Error("Not implemented"); }
+
+  async searchMerch(query: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async searchEvents(query: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async searchBlogs(query: string): Promise<any[]> { throw new Error("Not implemented"); }
 }

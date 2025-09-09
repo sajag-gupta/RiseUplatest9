@@ -3,7 +3,10 @@ import {
   User, InsertUser, Song, InsertSong, Merch, InsertMerch, Event, InsertEvent,
   Order, InsertOrder, Subscription, InsertSubscription, Analytics, InsertAnalytics,
   Blog, InsertBlog, PromoCode, InsertPromoCode, OrderTracking, InsertOrderTracking,
-  ReturnRequest, InsertReturnRequest
+  ReturnRequest, InsertReturnRequest,
+  NFT, InsertNFT, NFTListing, InsertNFTListing, NFTAuction, InsertNFTAuction, NFTTransaction, InsertNFTTransaction,
+  AdCampaign, InsertAdCampaign, AudioAd, InsertAudioAd, BannerAd, InsertBannerAd,
+  AdPlacement, InsertAdPlacement, AdImpression, InsertAdImpression, AdClick, InsertAdClick, AdRevenue, InsertAdRevenue
 } from "../../shared/schemas";
 
 export interface IStorage {
@@ -91,12 +94,81 @@ export interface IStorage {
   // Analytics methods
   logAnalytics(analytics: InsertAnalytics): Promise<void>;
 
+  // NFT methods
+  getAllNFTs(): Promise<NFT[]>;
+  getNFT(id: string): Promise<NFT | null>;
+  getNFTsByUser(userId: string): Promise<NFT[]>;
+  createNFT(nft: InsertNFT): Promise<NFT>;
+  updateNFT(id: string, updates: Partial<NFT>): Promise<NFT | null>;
+  deleteNFT(id: string): Promise<boolean>;
+  getListedNFTs(): Promise<NFT[]>;
+  getActiveAuctions(): Promise<NFT[]>;
+  createNFTListing(listing: InsertNFTListing): Promise<NFTListing>;
+  updateNFTListing(id: string, updates: Partial<NFTListing>): Promise<NFTListing | null>;
+  deleteNFTListing(id: string): Promise<boolean>;
+  createNFTAuction(auction: InsertNFTAuction): Promise<NFTAuction>;
+  updateNFTAuction(id: string, updates: Partial<NFTAuction>): Promise<NFTAuction | null>;
+  deleteNFTAuction(id: string): Promise<boolean>;
+  createNFTTransaction(transaction: InsertNFTTransaction): Promise<NFTTransaction>;
+  getNFTTransactions(nftId: string): Promise<NFTTransaction[]>;
+  getNFTTransactionsByUser(userId: string): Promise<NFTTransaction[]>;
+  getNFTStats(): Promise<any>;
+
   // Additional methods for dashboard
   getRecentPlaysByUser(userId: string): Promise<Song[]>;
   getArtistNameByProfileId(artistId: string): Promise<string>;
   getSongsWithArtistNames(options?: { genre?: string; sort?: string; limit?: number }): Promise<(Song & { artistName: string })[]>;
   getEventsWithArtistNames(filters: any): Promise<(Event & { artistName: string })[]>;
   getMerchWithArtistNames(filters: any): Promise<(Merch & { artistName: string })[]>;
+
+  // Search methods
+  searchMerch(query: string): Promise<Merch[]>;
+  searchEvents(query: string): Promise<Event[]>;
+  searchBlogs(query: string): Promise<Blog[]>;
+
+  // Ad methods
+  getAdCampaign(id: string): Promise<AdCampaign | undefined>;
+  getAllAdCampaigns(): Promise<AdCampaign[]>;
+  createAdCampaign(campaign: InsertAdCampaign): Promise<AdCampaign>;
+  updateAdCampaign(id: string, updates: Partial<AdCampaign>): Promise<AdCampaign | undefined>;
+  deleteAdCampaign(id: string): Promise<boolean>;
+
+  getAudioAd(id: string): Promise<AudioAd | undefined>;
+  getAudioAdsByCampaign(campaignId: string): Promise<AudioAd[]>;
+  getAllAudioAds(): Promise<AudioAd[]>;
+  createAudioAd(ad: InsertAudioAd): Promise<AudioAd>;
+  updateAudioAd(id: string, updates: Partial<AudioAd>): Promise<AudioAd | undefined>;
+  deleteAudioAd(id: string): Promise<boolean>;
+
+  getBannerAd(id: string): Promise<BannerAd | undefined>;
+  getBannerAdsByCampaign(campaignId: string): Promise<BannerAd[]>;
+  getAllBannerAds(): Promise<BannerAd[]>;
+  createBannerAd(ad: InsertBannerAd): Promise<BannerAd>;
+  updateBannerAd(id: string, updates: Partial<BannerAd>): Promise<BannerAd | undefined>;
+  deleteBannerAd(id: string): Promise<boolean>;
+
+  getAdPlacement(id: string): Promise<AdPlacement | undefined>;
+  getAdPlacementsByType(type: string): Promise<AdPlacement[]>;
+  createAdPlacement(placement: InsertAdPlacement): Promise<AdPlacement>;
+  updateAdPlacement(id: string, updates: Partial<AdPlacement>): Promise<AdPlacement | undefined>;
+  deleteAdPlacement(id: string): Promise<boolean>;
+
+  createAdImpression(impression: InsertAdImpression): Promise<AdImpression>;
+  getAdImpressions(adId: string, adType: string): Promise<AdImpression[]>;
+
+  createAdClick(click: InsertAdClick): Promise<AdClick>;
+  getAdClicks(adId: string, adType: string): Promise<AdClick[]>;
+
+  createAdRevenue(revenue: InsertAdRevenue): Promise<AdRevenue>;
+  getAdRevenue(adId: string, adType: string): Promise<AdRevenue[]>;
+  getAdRevenueByArtist(artistId: string): Promise<AdRevenue[]>;
+
+  getAdStats(adId: string, adType: string): Promise<{
+    impressions: number;
+    clicks: number;
+    ctr: number;
+    revenue: number;
+  }>;
 }
 
 export abstract class BaseStorage implements IStorage {
@@ -200,9 +272,76 @@ export abstract class BaseStorage implements IStorage {
 
   abstract logAnalytics(analytics: InsertAnalytics): Promise<void>;
 
+  abstract getAllNFTs(): Promise<NFT[]>;
+  abstract getNFT(id: string): Promise<NFT | null>;
+  abstract getNFTsByUser(userId: string): Promise<NFT[]>;
+  abstract createNFT(nft: InsertNFT): Promise<NFT>;
+  abstract updateNFT(id: string, updates: Partial<NFT>): Promise<NFT | null>;
+  abstract deleteNFT(id: string): Promise<boolean>;
+  abstract getListedNFTs(): Promise<NFT[]>;
+  abstract getActiveAuctions(): Promise<NFT[]>;
+  abstract createNFTListing(listing: InsertNFTListing): Promise<NFTListing>;
+  abstract updateNFTListing(id: string, updates: Partial<NFTListing>): Promise<NFTListing | null>;
+  abstract deleteNFTListing(id: string): Promise<boolean>;
+  abstract createNFTAuction(auction: InsertNFTAuction): Promise<NFTAuction>;
+  abstract updateNFTAuction(id: string, updates: Partial<NFTAuction>): Promise<NFTAuction | null>;
+  abstract deleteNFTAuction(id: string): Promise<boolean>;
+  abstract createNFTTransaction(transaction: InsertNFTTransaction): Promise<NFTTransaction>;
+  abstract getNFTTransactions(nftId: string): Promise<NFTTransaction[]>;
+  abstract getNFTTransactionsByUser(userId: string): Promise<NFTTransaction[]>;
+  abstract getNFTStats(): Promise<any>;
+
   abstract getRecentPlaysByUser(userId: string): Promise<Song[]>;
   abstract getArtistNameByProfileId(artistId: string): Promise<string>;
   abstract getSongsWithArtistNames(options?: { genre?: string; sort?: string; limit?: number }): Promise<(Song & { artistName: string })[]>;
   abstract getEventsWithArtistNames(filters: any): Promise<(Event & { artistName: string })[]>;
   abstract getMerchWithArtistNames(filters: any): Promise<(Merch & { artistName: string })[]>;
+
+  abstract searchMerch(query: string): Promise<Merch[]>;
+  abstract searchEvents(query: string): Promise<Event[]>;
+  abstract searchBlogs(query: string): Promise<Blog[]>;
+
+  // Ad methods
+  abstract getAdCampaign(id: string): Promise<AdCampaign | undefined>;
+  abstract getAllAdCampaigns(): Promise<AdCampaign[]>;
+  abstract createAdCampaign(campaign: InsertAdCampaign): Promise<AdCampaign>;
+  abstract updateAdCampaign(id: string, updates: Partial<AdCampaign>): Promise<AdCampaign | undefined>;
+  abstract deleteAdCampaign(id: string): Promise<boolean>;
+
+  abstract getAudioAd(id: string): Promise<AudioAd | undefined>;
+  abstract getAudioAdsByCampaign(campaignId: string): Promise<AudioAd[]>;
+  abstract getAllAudioAds(): Promise<AudioAd[]>;
+  abstract createAudioAd(ad: InsertAudioAd): Promise<AudioAd>;
+  abstract updateAudioAd(id: string, updates: Partial<AudioAd>): Promise<AudioAd | undefined>;
+  abstract deleteAudioAd(id: string): Promise<boolean>;
+
+  abstract getBannerAd(id: string): Promise<BannerAd | undefined>;
+  abstract getBannerAdsByCampaign(campaignId: string): Promise<BannerAd[]>;
+  abstract getAllBannerAds(): Promise<BannerAd[]>;
+  abstract createBannerAd(ad: InsertBannerAd): Promise<BannerAd>;
+  abstract updateBannerAd(id: string, updates: Partial<BannerAd>): Promise<BannerAd | undefined>;
+  abstract deleteBannerAd(id: string): Promise<boolean>;
+
+  abstract getAdPlacement(id: string): Promise<AdPlacement | undefined>;
+  abstract getAdPlacementsByType(type: string): Promise<AdPlacement[]>;
+  abstract createAdPlacement(placement: InsertAdPlacement): Promise<AdPlacement>;
+  abstract updateAdPlacement(id: string, updates: Partial<AdPlacement>): Promise<AdPlacement | undefined>;
+  abstract deleteAdPlacement(id: string): Promise<boolean>;
+
+  abstract createAdImpression(impression: InsertAdImpression): Promise<AdImpression>;
+  abstract getAdImpressions(adId: string, adType: string): Promise<AdImpression[]>;
+
+  abstract createAdClick(click: InsertAdClick): Promise<AdClick>;
+  abstract getAdClicks(adId: string, adType: string): Promise<AdClick[]>;
+
+  abstract createAdRevenue(revenue: InsertAdRevenue): Promise<AdRevenue>;
+  abstract getAdRevenue(adId: string, adType: string): Promise<AdRevenue[]>;
+  abstract getAdRevenueByArtist(artistId: string): Promise<AdRevenue[]>;
+
+  abstract getAdStats(adId: string, adType: string): Promise<{
+    impressions: number;
+    clicks: number;
+    ctr: number;
+    revenue: number;
+  }>;
 }

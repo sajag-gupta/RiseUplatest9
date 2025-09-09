@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Search, Bell, Menu, X, User,Settings, LogOut, Moon, Sun, ShoppingCart} from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,25 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  // Analytics throttling state
+  const lastAnalyticsCall = useRef<Record<string, number>>({});
+  const analyticsCallCount = useRef<Record<string, number>>({});
+  const analyticsMinuteStart = useRef<Record<string, number>>({});
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -39,6 +54,7 @@ export default function Header() {
   const navLinks = [
     { href: user ? "/home" : "/", label: "Home" },
     { href: "/discover", label: "Discover" },
+    { href: "/nft-marketplace", label: "NFTs" },
     { href: "/events", label: "Events" },
     { href: "/merch", label: "Merch" },
   ];
@@ -49,32 +65,65 @@ export default function Header() {
     return location === href;
   };
 
+  // Throttled analytics tracking function
+  const trackAnalytics = (action: string, context: string, metadata?: any) => {
+    if (!user?._id) return;
+
+    const now = Date.now();
+    const key = `${action}_${context}`;
+
+    // Reset minute counter if needed
+    if (!analyticsMinuteStart.current[key] || now - analyticsMinuteStart.current[key] > 60000) {
+      analyticsMinuteStart.current[key] = now;
+      analyticsCallCount.current[key] = 0;
+    }
+
+    // Check rate limits (max 10 calls per minute)
+    if (analyticsCallCount.current[key] >= 10) {
+      console.warn(`Analytics rate limit exceeded for ${key}`);
+      return;
+    }
+
+    // Check throttle (min 2 seconds between calls)
+    if (lastAnalyticsCall.current[key] && now - lastAnalyticsCall.current[key] < 2000) {
+      return;
+    }
+
+    // Update counters
+    lastAnalyticsCall.current[key] = now;
+    analyticsCallCount.current[key]++;
+
+    // Send analytics
+    fetch('/api/analytics', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('ruc_auth_token')}`
+      },
+      body: JSON.stringify({
+        userId: user._id,
+        action,
+        context,
+        metadata: {
+          ...metadata,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          url: window.location.href
+        }
+      })
+    }).catch(error => console.error('Analytics tracking failed:', error));
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       setLocation(`/discover?q=${encodeURIComponent(searchQuery)}`);
 
-      // Track search analytics
-      if (user) {
-        fetch('/api/analytics', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('ruc_auth_token')}`
-          },
-          body: JSON.stringify({
-            userId: user._id,
-            action: 'search',
-            context: 'header_search',
-            metadata: {
-              query: searchQuery,
-              timestamp: new Date().toISOString(),
-              userAgent: navigator.userAgent,
-              url: window.location.href
-            }
-          })
-        }).catch(error => console.error('Search analytics failed:', error));
-      }
+      // Track search analytics with throttling
+      trackAnalytics('search', 'header_search', {
+        query: searchQuery,
+        resultsCount: searchData?.suggestions?.length || 0
+      });
     }
   };
 
@@ -100,18 +149,18 @@ export default function Header() {
     staleTime: 30 * 1000,
   });
 
-  // Global search suggestions query
+  // Global search suggestions query (debounced)
   const { data: searchData } = useQuery({
-    queryKey: ["/api/search/suggestions", searchQuery],
+    queryKey: ["/api/search/suggestions", debouncedSearchQuery],
     queryFn: async () => {
-      if (!searchQuery.trim()) return { suggestions: [], totals: {} };
+      if (!debouncedSearchQuery.trim()) return { suggestions: [], totals: {} };
 
-      const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(searchQuery)}&limit=8`);
+      const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(debouncedSearchQuery)}&limit=8`);
       if (!response.ok) return { suggestions: [], totals: {} };
 
       return response.json();
     },
-    enabled: !!searchQuery && searchQuery.length > 2,
+    enabled: !!debouncedSearchQuery && debouncedSearchQuery.length > 2,
     staleTime: 30 * 1000,
   });
 

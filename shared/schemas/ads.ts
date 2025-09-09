@@ -41,7 +41,7 @@ export const insertAdCampaignSchema = adCampaignSchema.omit({ _id: true, created
 // -----------------------------
 export const audioAdSchema = z.object({
   _id: ObjectIdType,
-  campaignId: ObjectIdType, // Reference to AdCampaign
+  campaignId: ObjectIdType.optional(), // Optional reference to AdCampaign
   title: z.string(),
   audioUrl: z.string(),
   durationSec: z.number(),
@@ -49,11 +49,20 @@ export const audioAdSchema = z.object({
     text: z.string(),
     url: z.string().optional()
   }).optional(),
+  // Eligibility fields
+  status: z.enum(["ACTIVE", "PAUSED", "DRAFT"]).default("ACTIVE"),
+  approved: z.boolean().default(true),
+  isDeleted: z.boolean().default(false),
+  placements: z.array(z.string()).default(["home"]), // e.g., ["home", "discover"]
+  startAt: z.date().optional(),
+  endAt: z.date().optional(),
+  remainingBudget: z.number().optional(),
   impressions: z.number().default(0),
   clicks: z.number().default(0),
   completions: z.number().default(0),
   revenue: z.number().default(0),
-  createdAt: z.date().default(() => new Date())
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date())
 });
 
 export const insertAudioAdSchema = audioAdSchema.omit({ _id: true, createdAt: true });
@@ -63,18 +72,33 @@ export const insertAudioAdSchema = audioAdSchema.omit({ _id: true, createdAt: tr
 // -----------------------------
 export const bannerAdSchema = z.object({
   _id: ObjectIdType,
-  campaignId: ObjectIdType, // Reference to AdCampaign
+  campaignId: ObjectIdType.optional(), // Optional reference to AdCampaign
   title: z.string(),
   imageUrl: z.string(),
-  size: z.enum(["300x250", "728x90", "320x50", "300x600"]),
+  size: z.union([
+    z.enum(["300x250", "728x90", "320x50", "300x600"]), // Predefined sizes
+    z.object({ // Custom size
+      width: z.number().min(100).max(2000),
+      height: z.number().min(50).max(2000)
+    })
+  ]),
   callToAction: z.object({
     text: z.string(),
     url: z.string().optional()
   }).optional(),
+  // Eligibility fields
+  status: z.enum(["ACTIVE", "PAUSED", "DRAFT"]).default("ACTIVE"),
+  approved: z.boolean().default(true),
+  isDeleted: z.boolean().default(false),
+  placements: z.array(z.string()).default(["home"]), // e.g., ["home", "discover"]
+  startAt: z.date().optional(),
+  endAt: z.date().optional(),
+  remainingBudget: z.number().optional(),
   impressions: z.number().default(0),
   clicks: z.number().default(0),
   revenue: z.number().default(0),
-  createdAt: z.date().default(() => new Date())
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date())
 });
 
 export const insertBannerAdSchema = bannerAdSchema.omit({ _id: true, createdAt: true });
@@ -83,10 +107,10 @@ export const insertBannerAdSchema = bannerAdSchema.omit({ _id: true, createdAt: 
 // 🔹 Ad Placement Schema
 // -----------------------------
 export const adPlacementSchema = z.object({
-  _id: z.string(),
+  _id: ObjectIdType,
   type: z.enum(["PRE_ROLL", "MID_ROLL", "BANNER_HOME", "BANNER_DISCOVER", "BANNER_PROFILE"]),
-  createdAt: z.date(),
-  adId: z.string(),
+  createdAt: z.date().default(() => new Date()),
+  adId: ObjectIdType,
   adType: z.enum(["AUDIO", "BANNER"]),
   priority: z.number(),
   isActive: z.boolean(),

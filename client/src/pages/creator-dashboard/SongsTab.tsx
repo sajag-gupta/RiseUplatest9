@@ -44,7 +44,10 @@ export default function SongsTab() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries to update analytics
       queryClient.invalidateQueries({ queryKey: ["artistSongs"] });
+      queryClient.invalidateQueries({ queryKey: ["artistAnalytics"] });
+      queryClient.invalidateQueries({ queryKey: ["artistProfile"] });
       toast({
         title: "Song deleted successfully",
         description: "Your song has been removed",

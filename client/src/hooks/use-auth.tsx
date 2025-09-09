@@ -1,14 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { authApi, redirectAfterAuth } from "@/lib/auth";
+import { authApi, redirectAfterAuth, type AuthResponse } from "@/lib/auth";
 import { useAuthModal } from "@/hooks/use-auth-modal";
 import { toast } from "@/hooks/use-toast";
 import type { CurrentUser, AuthState, LoginForm, SignupForm } from "@/types";
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginForm) => Promise<void>;
-  signup: (userData: SignupForm) => Promise<void>;
+  signup: (userData: SignupForm, skipRedirect?: boolean) => Promise<AuthResponse>;
   logout: () => void;
   updateProfile: (updates: Partial<CurrentUser>) => Promise<void>;
   updateUser: (user: CurrentUser) => void;
@@ -48,11 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Get current user query
+  // Get current user query with improved caching and race condition handling
   const { data: currentUser, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ["/api/users/me"],
     enabled: !!authState.token && !authState.user,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes - longer cache to reduce API calls
+    gcTime: 15 * 60 * 1000, // 15 minutes garbage collection time
     retry: (failureCount, error) => {
       // Only retry on network errors, not on auth errors (401, 403)
       if (error && typeof error === 'object' && 'status' in error) {
@@ -61,8 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false; // Don't retry on auth errors
         }
       }
-      return failureCount < 2; // Retry up to 2 times for other errors
+      return failureCount < 1; // Only retry once for network errors to prevent loops
     },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 
   // Update auth state when user data changes or errors occur
@@ -221,17 +223,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginMutation.mutateAsync(credentials);
   };
 
-  const signup = async (userData: SignupForm) => {
+  const signup = async (userData: SignupForm, skipRedirect?: boolean): Promise<AuthResponse> => {
     if (userData.password !== userData.confirmPassword) {
       toast({
         title: "Passwords don't match",
         description: "Please make sure your passwords match.",
         variant: "destructive",
       });
-      return;
+      throw new Error("Passwords don't match");
     }
-    
-    await signupMutation.mutateAsync(userData);
+
+    const result = await signupMutation.mutateAsync(userData);
+
+    // If skipRedirect is true, don't redirect and return the result
+    if (skipRedirect) {
+      return result;
+    }
+
+    // Otherwise, the mutation's onSuccess will handle the redirect
+    return result;
   };
 
   const logout = () => {

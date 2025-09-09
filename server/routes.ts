@@ -13,7 +13,13 @@ import { setupCommerceRoutes } from "./routes/commerce";
 import { setupAdminRoutes } from "./routes/admin";
 import { setupSearchRoutes } from "./routes/search";
 import { setupAdRoutes } from "./routes/ads";
-import { setupAnalyticsRoutes } from "./routes/analytics";
+import { setupAnalyticsRoutes, getNFTAnalytics, getNFTMarketplaceAnalytics, getArtistNFTAlytics, getCurrentUserNFTAlytics, getUserCrossSystemEngagement, getPlatformCrossSystemAnalytics } from "./routes/analytics";
+import { setupNFTRoutes } from "./routes/nfts";
+import { setupFanClubRoutes } from "./routes/fanclubs";
+import { setupDaoRoutes } from "./routes/dao";
+import { setupLoyaltyRoutes } from "./routes/loyalty";
+import { setupRoyaltyRoutes } from "./routes/royalty";
+import { setupCrossChainRoutes } from "./routes/crosschain";
 
 // Extend session type for cart
 declare module "express-session" {
@@ -71,6 +77,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupSearchRoutes(app);
   setupAdRoutes(app);
   setupAnalyticsRoutes(app);
+  setupNFTRoutes(app);
+  setupFanClubRoutes(app);
+  setupDaoRoutes(app);
+  setupLoyaltyRoutes(app);
+  setupRoyaltyRoutes(app);
+  setupCrossChainRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

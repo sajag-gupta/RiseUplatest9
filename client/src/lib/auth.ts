@@ -56,7 +56,7 @@ export const authApi = {
       name: userData.name,
       email: userData.email,
       passwordHash: userData.password,
-      role: userData.role
+      role: "fan" // Default role for new signups
     });
     const data = await response.json();
 

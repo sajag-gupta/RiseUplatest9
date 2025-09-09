@@ -306,9 +306,10 @@ export default function Settings() {
       return res.json();
     },
     onSuccess: () => {
-      localStorage.removeItem("ruc_auth_token");
-      toast({ title: "Account deleted", description: "Your account has been removed" });
-      window.location.href = "/";
+      // Clear all auth-related data and queries
+      queryClient.clear();
+      auth.logout();
+      toast({ title: "Account deleted", description: "Your account has been removed. Thank you for being part of Rise Up Creators!" });
     },
     onError: () => toast({ title: "Error", description: "Failed to delete account", variant: "destructive" }),
   });
@@ -786,7 +787,7 @@ export default function Settings() {
                         {auth.user.plan?.type || "FREE"} Plan
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {auth.user.plan?.type === "PREMIUM"
+                        {auth.user.plan?.type && auth.user.plan.type !== "FREE"
                           ? "Enjoy ad-free music and exclusive features"
                           : "Upgrade to premium for an ad-free experience"}
                       </p>

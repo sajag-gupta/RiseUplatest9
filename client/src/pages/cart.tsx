@@ -82,6 +82,34 @@ export default function Cart() {
     }
   });
 
+  // Clear cart mutation
+  const clearCartMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/cart/clear", {
+        method: "DELETE",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('ruc_auth_token')}`
+        }
+      });
+      if (!response.ok) throw new Error("Failed to clear cart");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      toast({
+        title: "Cart cleared",
+        description: "All items have been removed from your cart"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to clear cart",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Apply promo code mutation
   const applyPromoMutation = useMutation({
     mutationFn: async (code: string) => {
@@ -129,6 +157,10 @@ export default function Cart() {
     applyPromoMutation.mutate(promoCode.trim().toUpperCase());
   };
 
+  const handleClearCart = () => {
+    clearCartMutation.mutate();
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen pt-16 pb-24 flex items-center justify-center">
@@ -172,6 +204,23 @@ export default function Cart() {
   const cartItems = cart?.items || [];
   const cartSummary = cart?.summary || { subtotal: 0, discount: 0, tax: 0, total: 0 };
 
+  // Group items by type
+  const groupedItems = cartItems.reduce((groups: any, item: any) => {
+    if (!groups[item.type]) {
+      groups[item.type] = [];
+    }
+    groups[item.type].push(item);
+    return groups;
+  }, {});
+
+  // Calculate category subtotals
+  const categorySubtotals = Object.keys(groupedItems).reduce((totals: any, type: string) => {
+    totals[type] = groupedItems[type].reduce((sum: number, item: any) =>
+      sum + (item.price * item.quantity), 0
+    );
+    return totals;
+  }, {});
+
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen pt-16 pb-24">
@@ -207,146 +256,248 @@ export default function Cart() {
     <div className="min-h-screen pt-16 pb-24">
       <div className="container-custom py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Shopping Cart</h1>
-          <p className="text-muted-foreground">
-            {cartItems.length} item{cartItems.length > 1 ? 's' : ''} in your cart
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Shopping Cart</h1>
+              <p className="text-muted-foreground">
+                {cartItems.length} item{cartItems.length > 1 ? 's' : ''} in your cart
+              </p>
+            </div>
+            {cartItems.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => clearCartMutation.mutate()}
+                disabled={clearCartMutation.isPending}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                data-testid="clear-cart"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {clearCartMutation.isPending ? "Clearing..." : "Clear Cart"}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {cartItems.map((item: any, index: number) => (
-              <Card key={item._id} data-testid={`cart-item-${index}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4">
-                    {/* Item Image */}
-                    <img
-                      src={item.image || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
-                      alt={item.name}
-                      className="w-20 h-20 rounded-lg object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100";
-                      }}
-                    />
-
-                    {/* Item Details */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {item.type === 'merch' ? `by ${item.artistName}` : item.artistName}
-                          </p>
-                          {item.type === 'ticket' && (
-                            <div className="flex items-center space-x-2 mt-1">
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(item.eventDate).toLocaleDateString()}
-                              </span>
-                              <span className="text-xs text-muted-foreground">•</span>
-                              <span className="text-xs text-muted-foreground">{item.venue}</span>
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveItem(item._id)}
-                          disabled={removeItemMutation.isPending}
-                          data-testid="remove-item"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-4">
-                        {/* Quantity Controls (only for merch) */}
-                        {item.type === 'merch' ? (
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
-                              disabled={item.quantity <= 1 || updateQuantityMutation.isPending}
-                              data-testid="decrease-quantity"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => handleUpdateQuantity(item._id, parseInt(e.target.value) || 1)}
-                              className="h-8 w-16 text-center"
-                              data-testid="quantity-input"
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
-                              disabled={updateQuantityMutation.isPending}
-                              data-testid="increase-quantity"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <Ticket className="w-4 h-4 text-primary" />
-                            <span className="text-sm text-muted-foreground">
-                              {item.quantity} ticket{item.quantity > 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Price */}
-                        <div className="text-right">
-                          <div className="font-semibold">₹{(item.price * item.quantity).toLocaleString()}</div>
-                          {item.quantity > 1 && (
-                            <div className="text-xs text-muted-foreground">
-                              ₹{item.price} each
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+          <div className="lg:col-span-2 space-y-6">
+            {Object.keys(groupedItems).map((type: string) => (
+              <div key={type} className="space-y-4">
+                {/* Category Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="secondary" className="text-sm">
+                      {type === 'merch' ? 'Merchandise' : type === 'event' ? 'Event Tickets' : type}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {groupedItems[type].length} item{groupedItems[type].length > 1 ? 's' : ''}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-sm font-medium">
+                    Subtotal: ₹{categorySubtotals[type].toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Category Items */}
+                <div className="space-y-3">
+                  {groupedItems[type].map((item: any, index: number) => (
+                    <Card key={item._id} data-testid={`cart-item-${type}-${index}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center space-x-4">
+                          {/* Item Image */}
+                          <img
+                            src={item.image || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
+                            alt={item.name}
+                            className="w-16 h-16 rounded-lg object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100";
+                            }}
+                          />
+
+                          {/* Item Details */}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-sm">{item.name}</h4>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.type === 'merch' ? `by ${item.artistName}` : item.artistName}
+                                </p>
+                                {item.type === 'event' && (
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(item.eventDate).toLocaleDateString()}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">•</span>
+                                    <span className="text-xs text-muted-foreground">{item.venue}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleRemoveItem(item._id)}
+                                disabled={removeItemMutation.isPending}
+                                data-testid="remove-item"
+                              >
+                                <Trash2 className="w-3 h-3 text-destructive" />
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-3">
+                              {/* Quantity Controls */}
+                              {item.type === 'merch' ? (
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
+                                    disabled={item.quantity <= 1 || updateQuantityMutation.isPending}
+                                    data-testid="decrease-quantity"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </Button>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(e) => handleUpdateQuantity(item._id, parseInt(e.target.value) || 1)}
+                                    className="h-7 w-14 text-center text-sm"
+                                    data-testid="quantity-input"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
+                                    disabled={updateQuantityMutation.isPending}
+                                    data-testid="increase-quantity"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <Ticket className="w-4 h-4 text-primary" />
+                                  <span className="text-sm text-muted-foreground">
+                                    {item.quantity} ticket{item.quantity > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Price */}
+                              <div className="text-right">
+                                <div className="font-semibold text-sm">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                {item.quantity > 1 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    ₹{item.price} each
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* Order Summary */}
+          {/* Enhanced Order Summary */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Order Summary</span>
+                  <Badge variant="outline" className="text-xs">
+                    {cartItems.length} item{cartItems.length > 1 ? 's' : ''}
+                  </Badge>
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>₹{cartSummary.subtotal.toLocaleString()}</span>
-                </div>
+                {/* Itemized Breakdown */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Item Details</h4>
 
-                {cartSummary.discount > 0 && (
-                  <div className="flex justify-between text-success">
-                    <span>Discount</span>
-                    <span>-₹{cartSummary.discount.toLocaleString()}</span>
-                  </div>
-                )}
+                  {Object.keys(groupedItems).map((type: string) => (
+                    <div key={type} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground capitalize">
+                          {type === 'merch' ? 'Merchandise' : type === 'event' ? 'Event Tickets' : type}
+                        </span>
+                        <span className="font-medium">₹{categorySubtotals[type].toLocaleString()}</span>
+                      </div>
 
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>₹{cartSummary.tax.toLocaleString()}</span>
+                      {/* Individual items in this category */}
+                      <div className="ml-4 space-y-1">
+                        {groupedItems[type].map((item: any) => (
+                          <div key={item._id} className="flex justify-between text-xs text-muted-foreground">
+                            <span className="truncate max-w-[120px]">{item.name}</span>
+                            <span>₹{(item.price * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <Separator />
 
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>Total</span>
-                  <span className="text-primary">₹{cartSummary.total.toLocaleString()}</span>
+                {/* Price Breakdown */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Price Breakdown</h4>
+
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal (before tax)</span>
+                    <span>₹{cartSummary.subtotal.toLocaleString()}</span>
+                  </div>
+
+                  {cartSummary.discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Discount Applied</span>
+                      <span>-₹{cartSummary.discount.toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  {/* GST Breakdown */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>GST Calculation</span>
+                      <span className="font-medium">₹{cartSummary.tax.toLocaleString()}</span>
+                    </div>
+
+                    <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                      <div className="flex justify-between">
+                        <span>CGST (9%)</span>
+                        <span>₹{(cartSummary.tax / 2).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST (9%)</span>
+                        <span>₹{(cartSummary.tax / 2).toFixed(2)}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        GST @ 18% on ₹{(cartSummary.subtotal - cartSummary.discount).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Final Total */}
+                <div className="space-y-3">
+                  <div className="flex justify-between text-lg font-semibold">
+                    <span>Total Amount</span>
+                    <span className="text-primary">₹{cartSummary.total.toLocaleString()}</span>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded">
+                    <div>Inclusive of all taxes</div>
+                    <div>Prices may vary based on location</div>
+                  </div>
                 </div>
 
                 <Link href="/checkout">
@@ -361,6 +512,26 @@ export default function Cart() {
                 </Link>
               </CardContent>
             </Card>
+
+            {/* Savings Summary */}
+            {cartSummary.discount > 0 && (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-green-800">Savings Applied</span>
+                    </div>
+                    <span className="text-sm font-semibold text-green-800">
+                      ₹{cartSummary.discount.toLocaleString()} saved
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-700 mt-1">
+                    You saved {((cartSummary.discount / (cartSummary.subtotal + cartSummary.discount)) * 100).toFixed(1)}% on this order
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Promo Code */}
             <Card>

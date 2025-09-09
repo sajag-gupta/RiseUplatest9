@@ -38,6 +38,19 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Invalidate ad queries when page becomes visible (user returns to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // User returned to tab, refresh ad data
+        // This ensures ads appear immediately after admin creates them
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const { data: recommended = [], isLoading: recommendedLoading } = useQuery({
     queryKey: ["/api/songs/recommended"],
     enabled: !!auth.user,
@@ -92,7 +105,7 @@ export default function Home() {
           </div>
 
           {/* Premium Upgrade Banner */}
-          {auth.user.plan?.type === "FREE" && (
+          {auth.user.plan?.type && auth.user.plan.type === "FREE" && (
             <Card className="mb-8 gradient-primary text-white border-0">
               <CardContent className="flex items-center justify-between p-6">
                 <div>
@@ -349,6 +362,45 @@ export default function Home() {
                   )}
                 </div>
               )}
+            </section>
+
+            {/* NFT Marketplace Section */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">NFT Marketplace</h2>
+                <Link href="/nft-marketplace">
+                  <Button variant="outline" size="sm">Explore NFTs</Button>
+                </Link>
+              </div>
+
+              <Card className="p-6 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">🎨</span>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Discover Unique Digital Assets</h3>
+                <p className="text-muted-foreground mb-4">
+                  Collect exclusive NFTs from your favorite artists, join fan clubs, and participate in DAO governance
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                  <Badge variant="secondary">🎵 Music NFTs</Badge>
+                  <Badge variant="secondary">🎭 Fan Clubs</Badge>
+                  <Badge variant="secondary">🏛️ DAO Governance</Badge>
+                  <Badge variant="secondary">🏆 Achievements</Badge>
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <Link href="/nft-marketplace">
+                    <Button>Browse NFTs</Button>
+                  </Link>
+                  <Link href="/fan-club">
+                    <Button variant="outline">Join Fan Club</Button>
+                  </Link>
+                  <Link href="/dao">
+                    <Button variant="outline">DAO Governance</Button>
+                  </Link>
+                </div>
+              </Card>
             </section>
 
             {/* Trending Now */}

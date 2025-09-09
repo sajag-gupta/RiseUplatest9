@@ -17,6 +17,10 @@ export default function UploadTab() {
   const auth = useRequireRole("artist");
   const [isUploading, setIsUploading] = useState(false);
 
+  // Check if user can upload - only ARTIST plan users can upload
+  const canUpload = auth.user?.plan?.type === "ARTIST";
+  const userPlan = auth.user?.plan?.type || "FREE";
+
   // Upload Song Mutation
   const uploadSongMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -25,17 +29,20 @@ export default function UploadTab() {
         headers: { Authorization: `Bearer ${localStorage.getItem("ruc_auth_token")}` },
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Upload failed");
+      }
       return res.json();
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Song uploaded successfully" });
       setIsUploading(false);
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Upload failed",
-        description: "Failed to upload song. Please try again.",
+        description: error.message,
         variant: "destructive",
       });
       setIsUploading(false);
@@ -65,13 +72,11 @@ export default function UploadTab() {
       visibility: (formData.get("visibility") as string) || "PUBLIC",
     };
 
-    // Prepare FormData for upload
+    // Prepare FormData for upload (match backend expectations)
     const uploadFormData = new FormData();
     uploadFormData.append("audio", audioFile);
     uploadFormData.append("artwork", artworkFile);
-    uploadFormData.append("title", songData.title);
-    uploadFormData.append("genre", songData.genre);
-    uploadFormData.append("visibility", songData.visibility);
+    uploadFormData.append("data", JSON.stringify(songData)); // Backend expects JSON in 'data' field
 
     setIsUploading(true);
     uploadSongMutation.mutate(uploadFormData);

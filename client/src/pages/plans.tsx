@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Check, Star, Crown, Zap, Shield, Headphones, Users, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import Loading from "@/components/common/loading";
+
+// Razorpay type declaration
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const PLANS = [
   {
@@ -28,7 +35,8 @@ const PLANS = [
       "Ads between songs",
       "Lower audio quality",
       "No offline downloads",
-      "Limited customer support"
+      "Limited customer support",
+      "Cannot upload music"
     ],
     popular: false,
     buttonText: "Current Plan"
@@ -47,8 +55,7 @@ const PLANS = [
       "Unlimited skips",
       "Priority customer support",
       "Exclusive content access",
-      "Early access to new releases",
-      "Advanced analytics (for artists)"
+      "Early access to new releases"
     ],
     popular: true,
     buttonText: "Upgrade to Premium"
@@ -58,7 +65,7 @@ const PLANS = [
     name: "Artist Pro",
     price: 299,
     period: "month",
-    description: "Everything for creators",
+    description: "Unlock your creative potential",
     icon: Star,
     features: [
       "All Premium features",
@@ -70,7 +77,8 @@ const PLANS = [
       "Custom artist profile",
       "Revenue insights",
       "Fan engagement tools",
-      "Priority distribution"
+      "Priority distribution",
+      "Become a creator"
     ],
     popular: false,
     buttonText: "Start Creating"
@@ -82,31 +90,196 @@ export default function Plans() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
+  // Check for auto-select parameter from signup
+  const urlParams = new URLSearchParams(window.location.search);
+  const autoSelect = urlParams.get('autoSelect');
+  const fromSignup = urlParams.get('fromSignup') === 'true';
+
   const upgradeMutation = useMutation({
     mutationFn: async (planId: string) => {
+      const token = localStorage.getItem('ruc_auth_token');
       const response = await fetch(`/api/users/me/upgrade`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ planId }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upgrade plan");
+        let errorMessage = "Failed to initiate upgrade";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          // If response is not JSON, use the status text
+          errorMessage = response.statusText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
       return response.json();
     },
     onSuccess: (data, planId) => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
-      toast({
-        title: "Plan upgraded successfully!",
-        description: `Welcome to ${PLANS.find(p => p.id === planId)?.name}!`,
-      });
-      setLocation("/home");
+      // If it's a free plan, directly update
+      if (planId === "free") {
+        queryClient.invalidateQueries({ queryKey: ["user"] });
+        toast({
+          title: "Plan updated successfully!",
+          description: `Welcome to ${PLANS.find(p => p.id === planId)?.name}!`,
+        });
+        setLocation("/home");
+        return;
+      }
+
+      // For paid plans, initiate Razorpay payment
+      if (data.orderId && data.key && window.Razorpay) {
+        const options = {
+          key: data.key,
+          amount: data.amount,
+          currency: data.currency,
+          order_id: data.orderId,
+          name: "Rise Up Creators",
+          description: `Upgrade to ${PLANS.find(p => p.id === planId)?.name}`,
+          handler: async function (response: any) {
+            console.log("Payment completed, verifying with backend...", response);
+
+            let verificationAttempts = 0;
+            const maxVerificationAttempts = 3;
+
+            const verifyPayment = async (): Promise<void> => {
+              try {
+                verificationAttempts++;
+                console.log(`Payment verification attempt ${verificationAttempts}/${maxVerificationAttempts}`);
+
+                const token = localStorage.getItem('ruc_auth_token');
+                const verifyResponse = await fetch("/api/users/me/upgrade/verify", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  body: JSON.stringify({
+                    orderId: response.razorpay_order_id,
+                    paymentId: response.razorpay_payment_id,
+                    signature: response.razorpay_signature,
+                    planId: data.planId,
+                  }),
+                });
+
+                const verifyData = await verifyResponse.json();
+
+                if (verifyResponse.status === 202) {
+                  // Payment is still processing
+                  if (verificationAttempts < maxVerificationAttempts) {
+                    console.log("Payment still processing, retrying in 3 seconds...");
+                    toast({
+                      title: "Processing payment...",
+                      description: "Please wait while we verify your payment.",
+                    });
+                    setTimeout(verifyPayment, 3000);
+                    return;
+                  } else {
+                    throw new Error("Payment verification is taking longer than expected. Please check your payment status in a few minutes.");
+                  }
+                }
+
+                if (!verifyResponse.ok) {
+                  const errorMessage = verifyData.message || "Payment verification failed";
+                  throw new Error(errorMessage);
+                }
+
+                // Payment successful
+                console.log("Payment verification successful:", verifyData);
+
+                // Update user data in localStorage if new token provided
+                if (verifyData.token) {
+                  localStorage.setItem("ruc_auth_token", verifyData.token);
+                  if (verifyData.user) {
+                    localStorage.setItem("ruc_user_data", JSON.stringify(verifyData.user));
+                  }
+                }
+
+                queryClient.invalidateQueries({ queryKey: ["user"] });
+
+                // Special message for ARTIST plan upgrade
+                const successMessage = data.planId === "ARTIST"
+                  ? "Congratulations! You're now a creator. Welcome to the Artist Pro plan!"
+                  : `Welcome to ${PLANS.find(p => p.id === data.planId.toLowerCase())?.name}!`;
+
+                toast({
+                  title: "Plan upgraded successfully!",
+                  description: successMessage,
+                });
+
+                // Redirect to creator dashboard for new artists
+                if (data.planId === "ARTIST") {
+                  setLocation("/creator");
+                } else {
+                  setLocation("/home");
+                }
+
+              } catch (error: any) {
+                console.error("Payment verification error:", error);
+
+                // Handle different error types
+                let errorTitle = "Payment verification failed";
+                let errorDescription = error.message;
+
+                if (error.message?.includes("network") || error.message?.includes("fetch")) {
+                  errorTitle = "Network error";
+                  errorDescription = "Please check your internet connection and try again.";
+                } else if (error.message?.includes("timeout")) {
+                  errorTitle = "Verification timeout";
+                  errorDescription = "Payment verification is taking longer than expected. Please check your payment status in a few minutes.";
+                } else if (verificationAttempts >= maxVerificationAttempts) {
+                  errorTitle = "Verification failed";
+                  errorDescription = "Unable to verify payment after multiple attempts. Please contact support if you were charged.";
+                }
+
+                toast({
+                  title: errorTitle,
+                  description: errorDescription,
+                  variant: "destructive",
+                });
+
+                // If this is the last attempt and payment might have succeeded, suggest checking status
+                if (verificationAttempts >= maxVerificationAttempts) {
+                  setTimeout(() => {
+                    toast({
+                      title: "Need help?",
+                      description: "If you were charged but didn't receive your plan, please contact our support team.",
+                      duration: 10000,
+                    });
+                  }, 3000);
+                }
+              }
+            };
+
+            // Start verification process
+            await verifyPayment();
+          },
+          prefill: {
+            name: user?.name,
+            email: user?.email,
+          },
+          theme: {
+            color: "#7c3aed",
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } else {
+        toast({
+          title: "Payment service unavailable",
+          description: "Payment gateway is not configured. Please contact support.",
+          variant: "destructive",
+        });
+      }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Upgrade failed",
         description: error.message,
@@ -114,6 +287,33 @@ export default function Plans() {
       });
     },
   });
+
+  // Auto-upgrade to artist plan if coming from signup
+  useEffect(() => {
+    if (autoSelect === 'artist' && user && !upgradeMutation.isPending) {
+      // Clear the URL parameter to prevent re-triggering
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      // Show different messages for signup vs. upgrade
+      if (fromSignup) {
+        toast({
+          title: "🎵 Welcome to Rise Up Creators!",
+          description: "You're almost ready to start creating! Complete your Artist Pro subscription below to unlock all creator features.",
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "Upgrade to Artist Pro",
+          description: "Complete your Artist Pro subscription to unlock creator features and start uploading music.",
+        });
+      }
+
+      // Auto-trigger artist plan upgrade after a short delay
+      setTimeout(() => {
+        handleUpgrade('artist');
+      }, 2000);
+    }
+  }, [autoSelect, user, upgradeMutation.isPending, fromSignup]);
 
   const handleUpgrade = (planId: string) => {
     if (!user) {
@@ -130,17 +330,35 @@ export default function Plans() {
 
   const currentPlan = user?.plan?.type?.toLowerCase() || "free";
 
+  // Map uppercase plan types to lowercase for comparison
+  const planTypeMap = {
+    FREE: "free",
+    PREMIUM: "premium",
+    ARTIST: "artist"
+  };
+
   return (
     <div className="min-h-screen pt-16 pb-16">
       <div className="container-custom py-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Choose Your Plan
+            {fromSignup && autoSelect === 'artist' ? 'Complete Your Artist Setup' : 'Choose Your Plan'}
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Unlock the full potential of Rise Up Creators with our premium plans
+            {fromSignup && autoSelect === 'artist'
+              ? 'One final step to unlock your creator dashboard and start uploading music!'
+              : 'Unlock the full potential of Rise Up Creators with our premium plans'
+            }
           </p>
+          {fromSignup && autoSelect === 'artist' && (
+            <div className="mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4 max-w-lg mx-auto">
+              <p className="text-primary font-medium">🎵 Artist Pro Plan Required</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Complete your subscription to access unlimited uploads, analytics, and all creator features.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Plans Grid */}

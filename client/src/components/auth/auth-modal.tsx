@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "@/hooks/use-toast";
 import Loading from "@/components/common/loading";
+
+
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -29,14 +31,13 @@ const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
-  role: z.enum(["fan", "artist"]),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
-type SignupForm = Omit<z.infer<typeof signupSchema>, 'terms'>;
+type SignupForm = z.infer<typeof signupSchema>;
 
 export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -59,7 +60,6 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
       email: "",
       password: "",
       confirmPassword: "",
-      role: "fan",
     },
   });
 
@@ -72,12 +72,18 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
     }
   };
 
+
+
   const handleSignup = async (data: SignupForm) => {
     try {
       await signup(data);
       onClose();
-    } catch (error) {
-      // Error is handled in the auth hook
+    } catch (error: any) {
+      toast({
+        title: "Signup failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -322,42 +328,10 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                   )}
                 </div>
 
-                <div className="space-y-3">
-                  <Label>I want to join as:</Label>
-                  <div className="flex space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="role-fan"
-                        value="fan"
-                        className="text-primary"
-                        data-testid="role-fan"
-                        {...signupForm.register("role")}
-                      />
-                      <Label htmlFor="role-fan" className="cursor-pointer">Fan</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="role-artist"
-                        value="artist"
-                        className="text-primary"
-                        data-testid="role-artist"
-                        {...signupForm.register("role")}
-                      />
-                      <Label htmlFor="role-artist" className="cursor-pointer">Artist</Label>
-                    </div>
-                  </div>
-                  {signupForm.formState.errors.role && (
-                    <p className="text-sm text-destructive">
-                      {signupForm.formState.errors.role.message}
-                    </p>
-                  )}
-                </div>
 
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full gradient-primary hover:opacity-90"
                   disabled={isLoading}
                   data-testid="signup-submit-button"

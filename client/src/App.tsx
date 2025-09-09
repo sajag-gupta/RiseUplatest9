@@ -31,6 +31,11 @@ import OrderTracking from "@/pages/order-tracking";
 import EventDetails from "@/pages/event-details";
 import SongDetails from "@/pages/song-details";
 import BlogDetails from "@/pages/blog-details";
+import NFTMarketplace from "@/pages/nft-marketplace";
+import FanClub from "@/pages/fan-club";
+import DAO from "@/pages/dao";
+import Loyalty from "@/pages/loyalty";
+import CrossChain from "@/pages/cross-chain";
 import NotFound from "@/pages/not-found";
 
 // Layout
@@ -73,6 +78,11 @@ function AppRouter() {
         <Route path="/song/:id" component={SongDetails} />
         <Route path="/order/:orderId" component={OrderTracking} />
         <Route path="/blogs/:id" component={BlogDetails} />
+        <Route path="/nft-marketplace" component={NFTMarketplace} />
+        <Route path="/fan-club" component={FanClub} />
+        <Route path="/dao" component={DAO} />
+        <Route path="/loyalty" component={Loyalty} />
+        <Route path="/cross-chain" component={CrossChain} />
 
         {/* Fallback */}
         <Route component={NotFound} />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, List, Heart, Share2, X, Plus, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,42 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import AudioAd from "@/components/ads/audio-ad";
 
-// Analytics tracking helper
-const trackAnalytics = async (action: string, data: any = {}) => {
-  try {
+// Throttled analytics tracking helper
+const createThrottledAnalyticsTracker = () => {
+  const lastCallTime: Record<string, number> = {};
+  const callCount: Record<string, number> = {};
+  const minuteStart: Record<string, number> = {};
+
+  return (action: string, data: any = {}) => {
     const user = JSON.parse(localStorage.getItem('ruc_user_data') || '{}');
     if (!user._id) return;
 
-    await fetch('/api/analytics', {
+    const now = Date.now();
+    const key = action;
+
+    // Reset minute counter if needed
+    if (!minuteStart[key] || now - minuteStart[key] > 60000) {
+      minuteStart[key] = now;
+      callCount[key] = 0;
+    }
+
+    // Check rate limits (max 20 calls per minute for music player)
+    if (callCount[key] >= 20) {
+      console.warn(`Analytics rate limit exceeded for ${key}`);
+      return;
+    }
+
+    // Check throttle (min 1 second between calls)
+    if (lastCallTime[key] && now - lastCallTime[key] < 1000) {
+      return;
+    }
+
+    // Update counters
+    lastCallTime[key] = now;
+    callCount[key]++;
+
+    // Send analytics
+    fetch('/api/analytics', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,11 +66,11 @@ const trackAnalytics = async (action: string, data: any = {}) => {
           url: window.location.href
         }
       })
-    });
-  } catch (error) {
-    console.error('Analytics tracking failed:', error);
-  }
+    }).catch(error => console.error('Analytics tracking failed:', error));
+  };
 };
+
+const trackAnalytics = createThrottledAnalyticsTracker();
 
 export default function MusicPlayer() {
   const [, navigate] = useLocation();
@@ -93,8 +122,8 @@ export default function MusicPlayer() {
   // Check if current song is liked
   const isCurrentSongLiked = currentSong && favorites && Array.isArray(favorites) && favorites.some((song: any) => song._id === currentSong._id);
 
-  // Check if user is premium (skip ads for premium users)
-  const isPremiumUser = user?.plan?.type === "PREMIUM";
+  // Check if user has premium features (skip ads for any paid plan)
+  const isPremiumUser = user?.plan?.type && user.plan.type !== "FREE";
 
   // Track play time for mid-roll ads
   useEffect(() => {
@@ -106,29 +135,50 @@ export default function MusicPlayer() {
     }
   }, [isPlaying, showAd, isPremiumUser]);
 
-  // Check for mid-roll ads (every 5 minutes)
+  // Check for mid-roll ads (every 5 minutes, but cache results)
   useEffect(() => {
     if (playTime > 0 && playTime % 300 === 0 && !showAd && !isPremiumUser) {
       checkForMidRollAd();
     }
   }, [playTime, showAd, isPremiumUser]);
 
-  // Fetch ads for audio
+  // Fetch ads for audio with longer cache time
   const { data: audioAds } = useQuery<any[]>({
     queryKey: ["/api/ads/for-user", { type: "PRE_ROLL" }],
     enabled: !!user && !isPremiumUser,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    gcTime: 15 * 60 * 1000, // 15 minutes garbage collection time
   });
+
+  // Cache for mid-roll ads to avoid repeated API calls
+  const midRollAdCache = useRef<{ data: any[]; timestamp: number } | null>(null);
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   const checkForMidRollAd = async () => {
     try {
+      // Check cache first
+      const now = Date.now();
+      if (midRollAdCache.current && (now - midRollAdCache.current.timestamp) < CACHE_DURATION) {
+        const ads = midRollAdCache.current.data;
+        if (ads && ads.length > 0) {
+          setCurrentAd(ads[0]);
+          setShowAd(true);
+          pause();
+          return;
+        }
+      }
+
       const response = await fetch("/api/ads/for-user?type=MID_ROLL", {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('ruc_auth_token')}`
         }
       });
+
       if (response.ok) {
         const ads = await response.json();
+        // Cache the result
+        midRollAdCache.current = { data: ads, timestamp: now };
+
         if (ads && ads.length > 0) {
           setCurrentAd(ads[0]);
           setShowAd(true);
@@ -170,7 +220,7 @@ export default function MusicPlayer() {
     }
 
     // Check for pre-roll ad
-    if (audioAds && audioAds.length > 0 && !song) {
+    if (audioAds && Array.isArray(audioAds) && audioAds.length > 0 && !song) {
       // This is resuming current song, check if we need pre-roll
       const hasPlayedBefore = localStorage.getItem(`played_${currentSong?._id}`);
       if (!hasPlayedBefore) {

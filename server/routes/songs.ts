@@ -168,6 +168,19 @@ export function setupSongRoutes(app: Express) {
           .json({ message: "Audio file and artwork required" });
       }
 
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check plan restrictions for uploads - only ARTIST plan can upload
+      const userPlan = user.plan?.type || "FREE";
+      if (userPlan !== "ARTIST") {
+        return res.status(403).json({
+          message: "Upload requires ARTIST plan. Upgrade to Artist Pro to start creating music."
+        });
+      }
+
       const artist = await storage.getArtistByUserId(req.user!.id);
       if (!artist) {
         return res.status(404).json({ message: "Artist profile not found" });

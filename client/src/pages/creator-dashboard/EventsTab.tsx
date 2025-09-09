@@ -42,7 +42,10 @@ export default function EventsTab() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries to update analytics
       queryClient.invalidateQueries({ queryKey: ["artistEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["artistAnalytics"] });
+      queryClient.invalidateQueries({ queryKey: ["artistProfile"] });
       toast({
         title: "Event created successfully",
         description: "Your event is now live for fans to discover",

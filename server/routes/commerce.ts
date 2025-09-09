@@ -72,8 +72,19 @@ export function setupCommerceRoutes(app: Express) {
               : (itemData as any).title,
           price,
           quantity,
-          image: type === "merch" ? (itemData as any).images?.[0] : undefined,
-        });
+          image: type === "merch"
+            ? (itemData as any).images?.[0]
+            : type === "event"
+            ? (itemData as any).imageUrl
+            : undefined,
+          artistName: type === "merch"
+            ? (itemData as any).artistName
+            : type === "event"
+            ? (itemData as any).artistName
+            : undefined,
+          eventDate: type === "event" ? (itemData as any).date : undefined,
+          venue: type === "event" ? (itemData as any).venue : undefined,
+        } as any);
       }
 
       // Recalculate totals
@@ -519,21 +530,32 @@ export function setupCommerceRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Calculate refund amount
-      let refundAmount = 0;
-      for (const returnItem of items) {
-        const orderItem = order.items.find(item =>
-          (item.merchId === returnItem.merchId) || (item.eventId === returnItem.eventId)
-        );
-        if (orderItem) {
-          refundAmount += orderItem.unitPrice * returnItem.quantity;
-        }
+      // Transform items to match schema structure
+      const transformedItems = items.map((item: any) => ({
+        merchId: item.merchId || item.eventId, // Use merchId for both merch and events
+        quantity: item.quantity,
+        reason: item.reason || "Return requested",
+        condition: item.condition || "NEW"
+      }));
+
+      // Calculate refund amount - use the total amount paid (including GST)
+      // For partial returns, we need to calculate proportionally
+      let refundAmount = order.totalAmount; // Default to full refund
+
+      // If only some items are being returned, calculate partial refund
+      if (items.length < order.items.length) {
+        // Calculate the proportion of items being returned
+        const totalOrderItems = order.items.reduce((sum: number, item: any) => sum + item.qty, 0);
+        const returnItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        const refundProportion = returnItems / totalOrderItems;
+
+        refundAmount = Math.round(order.totalAmount * refundProportion);
       }
 
       const returnRequest = await storage.createReturnRequest({
         orderId,
         userId: req.user!.id,
-        items,
+        items: transformedItems,
         status: "REQUESTED",
         refundAmount,
         refundMethod: refundMethod || "ORIGINAL_PAYMENT",
@@ -564,10 +586,12 @@ export function setupCommerceRoutes(app: Express) {
   app.post("/api/admin/promo-codes", authenticateToken, async (req: AuthRequest, res) => {
     try {
       // TODO: Add admin role check
-      const promoCode = await storage.createPromoCode({
+      const promoData = {
         ...req.body,
+        code: req.body.code.toUpperCase(), // Ensure code is uppercase
         createdBy: req.user!.id
-      });
+      };
+      const promoCode = await storage.createPromoCode(promoData);
       res.json(promoCode);
     } catch (error) {
       console.error("Create promo code error:", error);
@@ -579,7 +603,11 @@ export function setupCommerceRoutes(app: Express) {
     try {
       // TODO: Add admin role check
       const { id } = req.params;
-      const updated = await storage.updatePromoCode(id, req.body);
+      const updateData = {
+        ...req.body,
+        code: req.body.code ? req.body.code.toUpperCase() : undefined // Ensure code is uppercase if provided
+      };
+      const updated = await storage.updatePromoCode(id, updateData);
       if (!updated) {
         return res.status(404).json({ message: "Promo code not found" });
       }

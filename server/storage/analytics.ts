@@ -1063,4 +1063,28 @@ export class AnalyticsStorage extends BaseStorage {
       };
     }
   }
+
+  // Placeholder implementations for NFT methods
+  async getAllNFTs(): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFT(id: string): Promise<any> { throw new Error("Not implemented"); }
+  async getNFTsByUser(userId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async createNFT(nft: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFT(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFT(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async getListedNFTs(): Promise<any[]> { throw new Error("Not implemented"); }
+  async getActiveAuctions(): Promise<any[]> { throw new Error("Not implemented"); }
+  async createNFTListing(listing: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFTListing(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFTListing(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async createNFTAuction(auction: any): Promise<any> { throw new Error("Not implemented"); }
+  async updateNFTAuction(id: string, updates: Partial<any>): Promise<any> { throw new Error("Not implemented"); }
+  async deleteNFTAuction(id: string): Promise<boolean> { throw new Error("Not implemented"); }
+  async createNFTTransaction(transaction: any): Promise<any> { throw new Error("Not implemented"); }
+  async getNFTTransactions(nftId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFTTransactionsByUser(userId: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async getNFTStats(): Promise<any> { throw new Error("Not implemented"); }
+
+  async searchMerch(query: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async searchEvents(query: string): Promise<any[]> { throw new Error("Not implemented"); }
+  async searchBlogs(query: string): Promise<any[]> { throw new Error("Not implemented"); }
 }
