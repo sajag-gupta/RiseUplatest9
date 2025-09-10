@@ -1,121 +1,128 @@
 # October Delivery Features
 
-## Admin Panel Features
-
-### **Dashboard Overview**
-- **Key Metrics**:
-  - Pending artist approvals count
-  - Active users statistics
-  - Platform revenue tracking
-- **Quick Actions**:
-  - Approve/reject artist applications
+## 🎯 USER DASHBOARD (Regular Users)
 
 ### **User Management**
-- Complete user account and profile management system
-- Account status monitoring and controls
+- **Account Overview**: View and manage personal account settings
+- **Profile Management**: Update profile information and preferences
+
+### **Payment Processing**
+- **Payment Oversight**: View payment history and status
+- **Transaction Management**: Track purchases and payment methods
+
+### **Return Processing**
+- **Return Requests**: Submit and track return requests
+
+### **Promo Code Usage**
+- **Discount Application**: Apply promo codes to purchases
+- **Code Validation**: Check validity and usage limits
+- **Purchase Eligibility**: Meet minimum purchase requirements
+
+---
+
+## 🎵 CREATOR DASHBOARD (Artists & Creators)
+
+### **Core Performance Metrics**
+- **Total Earnings**: Music revenue excluding NFT (subscriptions, merch, events, ads)
+- **Content Streams**: Total play counts across all uploaded music
+- **Follower Growth**: Follower count with acquisition tracking
+- **Engagement Tracking**: Likes, shares, and interaction metrics
+
+### **Content Management**
+- **Music Upload**: Direct upload functionality for new tracks
+- **Song Performance**: View individual song metrics and performance
+- **Content Statistics**: Track plays, likes, and sharing data
+
+### **Analytics Dashboard**
+- **Key Performance Indicators**:
+  - Revenue percentages with growth tracking
+  - Stream count growth metrics
+  - Follower acquisition rates
+  - Engagement conversion rates
+
+- **Data Visualizations**:
+  - **Revenue Pie Chart**: Breakdown by income sources (subscriptions, merchandise, events, ads)
+  - **Engagement Line Chart**: Time-series trends for plays, likes, and followers
+  - **Top Songs Bar Chart**: Performance comparison of content pieces
+  - **Growth Area Chart**: Revenue and follower growth visualization
+
+---
+
+## ⚙️ ADMIN PANEL (Platform Administrators)
+
+### **Dashboard Overview**
+- **Platform Metrics**: Monitor key platform statistics
+  - Pending artist applications count
+  - Active user statistics
+  - Platform revenue tracking
+- **Administrative Actions**: Quick access to critical functions
+  - Approve/reject artist applications
+  - Review platform performance
+
+### **User Administration**
+- **User Account Management**: Complete system for managing all user accounts
+- **Account Status Controls**: Monitor and manage account statuses
 
 ### **Artist Management**
-- Review and process artist applications
-- Approve or reject artist verification requests
-- Manage verified artist status and permissions
+- **Application Processing**: Review and approve/reject artist applications
+- **Artist Verification**: Manage verified artist status and permissions
+- **Platform Integration**: Handle artist onboarding and management
 
-### **Payment Management**
-- Platform payment processing oversight (also controlled by Razorpay)
-- Transaction monitoring and management (also controlled by Razorpay)
+### **Financial Management**
+- **Payment Processing Oversight**: Platform-wide payment management (Razorpay integrated)
+- **Return Management**: Handle customer returns and refunds
+- **Tax Configuration**: Set up and manage tax rates
 
-### **Return Management**
-- Handle customer return requests (also controlled by Razorpay)
-- Process refund workflows (also controlled by Razorpay)
+### **Commerce Management**
+- **Promo Code Administration**:
+  - Create multiple discount types (percentage, fixed amount)
+  - Configure advanced settings (usage limits, expiration, eligibility)
+- **E-commerce Analytics**:
+  - Sales revenue tracking
+  - Best-selling products analysis
+  - Transaction count monitoring
 
-### **Promo Code Management**
-- **Code Configuration**:
-  - Create discount codes with multiple types:
-    - Percentage discounts (%)
-    - Fixed amount discounts (₹)
-- **Advanced Settings**:
-  - Usage limits and expiration dates
-  - Eligibility criteria (minimum purchase requirements)
-
-### **Tax Settings**
-- Configure tax rates and taxation rules
+### **Content & Community Management**
+- **Subscription Analytics**:
+  - Active subscription monitoring
+  - Growth trend analysis
+- **Platform Growth**:
+  - Revenue trends and projections
+  - User growth forecasting
 
 ### **Platform Analytics Dashboard**
-
-#### **Overview Tab**
-- **User Metrics**:
+- **Overview Analytics**:
   - Total platform signups
-- **Financial Metrics**:
-  - Total platform revenue
-  - Revenue sources breakdown
-
-#### **Users Tab**
-- **Growth Analysis**:
-  - User growth trends and forecasting
-  - Retention metrics and calculations
-
-#### **Content Tab**
-- **Performance Metrics**:
-  - Total streams and plays
-  - Total likes and shares
-- **Trending Analysis**:
-  - Most popular songs and content
+  - Financial metrics with revenue breakdown
+- **User Analytics**:
+  - Growth trends and retention calculations
+- **Content Analytics**:
+  - Stream performance and sharing metrics
   - Trending content identification
+- **Advertising Performance**:
+  - Ad impressions and CTR tracking
+  - Revenue attribution from advertising
 
-#### **Revenue Tab**
-- **E-commerce Analytics**:
-  - Sales revenue and transaction counts
-  - Best-selling products tracking
-- **Subscription Analytics**:
-  - Active subscription counts
-- **Growth Tracking**:
-  - Revenue growth trends and projections
-
-#### **Ads Tab**
-- **Performance Metrics**:
-  - Ad impressions and views
-  - Click-through rates (CTR)
-  - User interaction analytics
-- **Revenue Attribution**:
-  - Advertising revenue tracking
-  - Campaign performance ROI
-
-### **Ad Management System**
-
-#### **Campaign Management**
-- Create and configure ad campaigns
-
-#### **Creative Management**
-- **Audio Ads**: Upload and manage audio advertisements
-- **Banner Ads**: Create and customize banner creatives
-
-#### **Placement Control**
-- **Platform Integration**:
-  - Home page ad placements
-  - Discover page positioning
+### **Advertising Management**
+- **Campaign Administration**:
+  - Create and configure advertising campaigns
+- **Creative Management**:
+  - Audio advert management and uploads
+  - Banner ad creation and customization
+- **Ad Placement**:
+  - Home page and discover page placement
   - Cross-device compatibility (mobile, desktop, tablet)
 
 ---
 
-## Creator Analytics Features
+## 🔗 INTEGRATION NOTES
 
-### **Overview Dashboard**
-- **Core Performance Metrics**:
-  - Total earnings (music + NFT revenue) excluding NFT
-  - Total content streams
-  - Follower count and growth
-  - Total engagement (likes, shares)
-- **Quick Actions**:
-  - Direct links to upload music
+### **Third-Party Services**
+- **Razorpay Integration**: Payment processing and transaction management
+- **Analytics Services**: Platform metrics and performance tracking
+- **Notification Systems**: User and admin notifications
 
-#### **Key Performance Indicators**
-- Total revenue with growth percentages
-- Stream counts and growth metrics
-- Follower acquisition rates
-- Engagement and conversion rates
-
-#### **Data Visualizations**
-- **Revenue Breakdown Pie Chart**: Income sources (subscriptions, merchandise, events, ads)
-- **Engagement Trends Line Chart**: Time-series analysis of plays, likes, and followers
-- **Top Songs Performance Bar Chart**: Content performance with plays and likes metrics
-- **Growth Metrics Area Chart**: Revenue and follower growth visualization
-
+### **Cross-Platform Features**
+- **Mobile Compatibility**: All dashboard features work across devices
+- **Real-time Updates**: Live data synchronization
+- **Export Capabilities**: Analytics data export functionality
