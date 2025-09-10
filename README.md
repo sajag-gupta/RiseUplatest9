@@ -25,7 +25,6 @@
 ### **Core Performance Metrics**
 - **Total Earnings**: Music revenue excluding NFT (subscriptions, merch, events, ads)
 - **Content Streams**: Total play counts across all uploaded music
-- **Follower Growth**: Follower count with acquisition tracking
 - **Engagement Tracking**: Likes, shares, and interaction metrics
 
 ### **Content Management**
@@ -37,7 +36,6 @@
 - **Key Performance Indicators**:
   - Revenue percentages with growth tracking
   - Stream count growth metrics
-  - Follower acquisition rates
   - Engagement conversion rates
 
 - **Data Visualizations**:
@@ -82,14 +80,6 @@
   - Best-selling products analysis
   - Transaction count monitoring
 
-### **Content & Community Management**
-- **Subscription Analytics**:
-  - Active subscription monitoring
-  - Growth trend analysis
-- **Platform Growth**:
-  - Revenue trends and projections
-  - User growth forecasting
-
 ### **Platform Analytics Dashboard**
 - **Overview Analytics**:
   - Total platform signups
@@ -120,7 +110,6 @@
 ### **Third-Party Services**
 - **Razorpay Integration**: Payment processing and transaction management
 - **Analytics Services**: Platform metrics and performance tracking
-- **Notification Systems**: User and admin notifications
 
 ### **Cross-Platform Features**
 - **Mobile Compatibility**: All dashboard features work across devices
